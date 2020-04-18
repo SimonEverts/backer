@@ -1,0 +1,15 @@
+[package]
+name = "backer-list"
+version = "0.1.0"
+authors = ["Simon Everts <simoneverts@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+data-encoding = "2.2.0"
+md5 = "0.7.0"
+
+[[bin]]
+name = "backer-list"
+path = "backer-list.rs"
