@@ -1,1 +1,6 @@
 /target
+CMakeLists.txt.user
+.vscode/
+build/
+cmake-build-debug/
+.idea/

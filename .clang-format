@@ -1,0 +1,28 @@
+# We'll use defaults from the LLVM style, but with 4 columns indentation.
+BasedOnStyle: LLVM
+IndentWidth: 4
+UseTab: Never
+---
+Language: Cpp
+ColumnLimit: 120
+# Force pointers to the type for C++.
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBraces: Custom
+SpaceBeforeCpp11BracedList: true
+Cpp11BracedListStyle: false
+
+BraceWrapping:
+  AfterStruct: true
+  AfterFunction: true
+  AfterEnum: true
+  SplitEmptyFunction: false
+
+IncludeBlocks: Regroup
+IncludeCategories:
+  # system includes last
+  - Regex:           '^<.*'
+    Priority:        10
