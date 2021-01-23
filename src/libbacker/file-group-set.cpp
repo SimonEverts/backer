@@ -2,6 +2,8 @@
 
 #include "katla/core/posix-file.h"
 
+#include "backer.h"
+
 #include <filesystem>
 #include <openssl/md5.h>
 
@@ -52,11 +54,41 @@ namespace backer {
         }
     }
 
-    long FileGroupSet::countFiles()
-    {
+    // Calculate md5 hashes of files in a group
+    // - Use that md5 in the key to create an unique group
+    std::map<std::string, std::vector<backer::FileSystemEntry>> FileGroupSet::splitInDuplicateFileGroups() {
+        auto nrOfFiles = countFiles();
+
+        std::map<std::string, std::vector<backer::FileSystemEntry>> uniqueGroup;
+        int fileNr = 0;
+        for (auto &pair : m_fileMap) {
+            auto &&fileGroup = pair.second;
+
+            for (auto &file : fileGroup) {
+                katla::print(stdout, "[{}/{}] {}\n", fileNr, nrOfFiles, file.absolutePath);
+                fileNr++;
+
+                if (fileGroup.size() < 2) {
+                    uniqueGroup[pair.first] = fileGroup;
+                    continue;
+                }
+
+                file.hash = Backer::sha256(file.absolutePath);
+                std::string newKey = katla::format("{}-{}", pair.first, backer::Backer::formatHash(file.hash));
+                if (uniqueGroup.find(newKey) == uniqueGroup.end()) {
+                    uniqueGroup[newKey] = {};
+                }
+                uniqueGroup[newKey].push_back(file);
+            }
+        }
+
+        return uniqueGroup;
+    }
+
+    long FileGroupSet::countFiles() {
         long fileCount = 0;
-        for (auto& pair : m_fileMap) {
-            for(auto& file : pair.second) {
+        for (auto &pair : m_fileMap) {
+            for (auto &file : pair.second) {
                 fileCount++;
             }
         }

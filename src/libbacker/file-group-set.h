@@ -39,6 +39,8 @@ public:
 
     long countFiles();
 
+    std::map<std::string, std::vector<backer::FileSystemEntry>> splitInDuplicateFileGroups();
+
     std::map<std::string, std::vector<backer::FileSystemEntry>> fileMap() {
         return m_fileMap;
     }
