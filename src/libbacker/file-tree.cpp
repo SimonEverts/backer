@@ -77,6 +77,17 @@ namespace backer {
 
         dirData.absolutePath = absolutePathResult.value();
 
+        // TODO: ignore node_modules and .git for now
+        std::size_t found = dirData.absolutePath.find("node_modules");
+        if (found != std::string::npos) {
+            return {};
+        }
+        found = dirData.absolutePath.find(".git");
+        if (found != std::string::npos) {
+            return {};
+        }
+        //--
+
         fs::directory_iterator dirIter(entry.path());
 
         dirData.children = std::vector<FileSystemEntry>();

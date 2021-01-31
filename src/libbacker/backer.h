@@ -48,6 +48,7 @@ class Backer {
 
     static std::vector<std::byte> sha256(std::string path);
     static std::vector<std::byte> sha256(std::vector<std::vector<std::byte>> hashes);
+    static std::vector<std::byte> sha256FromString(std::string str);
 
     static std::string formatHash(const std::vector<std::byte>& hash);
     static void writeToFile(std::string filePath, std::map<std::string, FileSystemEntry>& fileData);

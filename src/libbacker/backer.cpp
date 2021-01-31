@@ -65,6 +65,21 @@ namespace backer {
         return result;
     }
 
+    std::vector<std::byte> Backer::sha256FromString(std::string string) {
+
+        SHA256_CTX ctx;
+        if (!SHA256_Init(&ctx)) {
+            throw new std::runtime_error("Failed initiaizing md5 context!");
+        }
+
+        SHA256_Update(&ctx, reinterpret_cast<const unsigned char *>(string.data()), string.size());
+
+        std::vector<std::byte> result(SHA256_DIGEST_LENGTH);
+        SHA256_Final(reinterpret_cast<unsigned char *>(result.data()), &ctx);
+
+        return result;
+    }
+
     void Backer::walkFiles(std::string path,
                            std::map<std::string, std::vector<FileSystemEntry>> &fileMap,
                            bool addNewFiles,

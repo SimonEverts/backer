@@ -105,10 +105,19 @@ int main(int argc, char* argv[])
     gtkApplication.onActivate([&fileMap, &keys, &window, &listview, &genListEntry, &fileGroupSet, &duplicateListView]() {
         window->show();
 
-        fileGroupSet = backer::FileGroupSet::create(".");
-        fileMap = fileGroupSet.splitInDuplicateFileGroups();
+        fileGroupSet = backer::FileGroupSet::create("/mnt/exthdd/primary"); // /mnt/exthdd/primary
+        fileMap = fileGroupSet.fileMap();
 
         for (auto& pair : fileMap) {
+            if (pair.second.size() < 2) {
+                continue;
+            }
+
+            auto front = pair.second.front();
+            if (front.type != backer::FileSystemEntryType::Dir) {
+                continue;
+            }
+
             keys.push_back(pair.first);
 //            for(auto& file : pair.second) {
                 listview->addWidget(genListEntry(pair.second.front()));

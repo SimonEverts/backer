@@ -35,11 +35,11 @@ public:
 
     static FileGroupSet create(std::string path);
 
-    void addAndGroupPotentialDuplicateFile(std::string path);
+    void addAndGroupDuplicateFile(std::string path);
 
-    long countFiles();
+    long countFiles(const std::map<std::string, std::vector<backer::FileSystemEntry>>& fileMap);
 
-    std::map<std::string, std::vector<backer::FileSystemEntry>> splitInDuplicateFileGroups();
+    void hashDir(FileSystemEntry& entry);
 
     std::map<std::string, std::vector<backer::FileSystemEntry>> fileMap() {
         return m_fileMap;
