@@ -12,77 +12,77 @@ namespace backer {
     FileTree::FileTree() {
     }
 
-    FileSystemEntry FileTree::create(std::string path) {
+    std::unique_ptr<FileSystemEntry> FileTree::create(std::string path) {
         return fileSystemEntryFromDir(fs::directory_entry(fs::path(path)), path);
     }
 
-    std::vector<backer::FileSystemEntry> FileTree::flatten(const FileSystemEntry& entry)
+    std::vector<std::shared_ptr<backer::FileSystemEntry>> FileTree::flatten(const std::shared_ptr<FileSystemEntry>& entry)
     {
-        std::vector<FileSystemEntry> files;
+        std::vector<std::shared_ptr<FileSystemEntry>> files;
         files.push_back(entry);
 
-        flattenChild(entry, files);
+        flattenChild(*entry, files);
         return files;
     }
 
-    void FileTree::flattenChild(const FileSystemEntry& entry, std::vector<backer::FileSystemEntry>& list)
+    void FileTree::flattenChild(const FileSystemEntry& entry, std::vector<std::shared_ptr<backer::FileSystemEntry>>& list)
     {
         if (entry.children.has_value()) {
             for(auto& file : entry.children.value()) {
                 list.push_back(file);
 
-                if (file.type == FileSystemEntryType::Dir) {
-                    flattenChild(file, list);
+                if (file->type == FileSystemEntryType::Dir) {
+                    flattenChild(*file, list);
                 }
             }
         }
     }
 
-    FileSystemEntry FileTree::fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath)
+    std::unique_ptr<FileSystemEntry> FileTree::fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath)
     {
         if (!entry.is_regular_file()) {
             return {};
         }
 
-        FileSystemEntry fileData{};
-        fileData.name = entry.path().filename().string();
-        fileData.relativePath = fs::relative(entry.path(), basePath).string();
+        auto fileData = std::make_unique<FileSystemEntry>();
+        fileData->name = entry.path().filename().string();
+        fileData->relativePath = fs::relative(entry.path(), basePath).string();
 
         auto absolutePathResult = katla::PosixFile::absolutePath(entry.path().string());
         if (!absolutePathResult) {
             throw std::runtime_error(absolutePathResult.error().message());
         }
 
-        fileData.absolutePath = absolutePathResult.value();
-        fileData.size = entry.file_size();
-        fileData.type = FileSystemEntryType::File;
+        fileData->absolutePath = absolutePathResult.value();
+        fileData->size = entry.file_size();
+        fileData->type = FileSystemEntryType::File;
 
         return fileData;
     }
 
-    FileSystemEntry FileTree::fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath)
+    std::unique_ptr<FileSystemEntry> FileTree::fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath)
     {
         if (!entry.is_directory()) {
             return {};
         }
 
-        FileSystemEntry dirData{};
-        dirData.name = entry.path().filename().string();
-        dirData.relativePath = fs::relative(entry.path(), basePath).string();
+        auto dirData = std::make_unique<FileSystemEntry>();
+        dirData->name = entry.path().filename().string();
+        dirData->relativePath = fs::relative(entry.path(), basePath).string();
 
         auto absolutePathResult = katla::PosixFile::absolutePath(entry.path().string());
         if (!absolutePathResult) {
             throw std::runtime_error(absolutePathResult.error().message());
         }
 
-        dirData.absolutePath = absolutePathResult.value();
+        dirData->absolutePath = absolutePathResult.value();
 
         // TODO: ignore node_modules and .git for now
-        std::size_t found = dirData.absolutePath.find("node_modules");
+        std::size_t found = dirData->absolutePath.find("node_modules");
         if (found != std::string::npos) {
             return {};
         }
-        found = dirData.absolutePath.find(".git");
+        found = dirData->absolutePath.find(".git");
         if (found != std::string::npos) {
             return {};
         }
@@ -90,7 +90,7 @@ namespace backer {
 
         fs::directory_iterator dirIter(entry.path());
 
-        dirData.children = std::vector<FileSystemEntry>();
+        dirData->children = std::vector<std::shared_ptr<FileSystemEntry>>();
 
         size_t dirSize = 0;
         for (auto &entry : dirIter) {
@@ -100,18 +100,18 @@ namespace backer {
 
             if (entry.is_regular_file() ) {
                 auto childFileData = fileSystemEntryFromFile(entry, basePath);
-                dirSize += childFileData.size;
-                dirData.children->push_back(childFileData);             
+                dirSize += childFileData->size;
+                dirData->children->push_back(std::move(childFileData));
             }
             if (entry.is_directory()) {
                 auto childDirData = fileSystemEntryFromDir(entry, basePath);
-                dirSize += childDirData.size;
-                dirData.children->push_back(childDirData);          
+                dirSize += childDirData->size;
+                dirData->children->push_back(std::move(childDirData));
             }      
         }
 
-        dirData.size = dirSize;
-        dirData.type = FileSystemEntryType::Dir;
+        dirData->size = dirSize;
+        dirData->type = FileSystemEntryType::Dir;
 
         return dirData;
     }

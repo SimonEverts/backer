@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
                 .children = {
                         katla::ContainerChild{.child = label},
                         katla::ContainerChild{.child = listview, .expand = true, .fill = true},
-                        katla::ContainerChild{.child = duplicateListView, .expand = false, .fill = true, .height = 200}
+                        katla::ContainerChild{.child = duplicateListView, .expand = false, .fill = true, .height = 400}
                 }
         });
 
@@ -99,13 +99,13 @@ int main(int argc, char* argv[])
 
 //    katla::Subject<std::string> onListActivated;
 
-    std::map<std::string, std::vector<backer::FileSystemEntry>> fileMap;
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> fileMap;
     std::vector<std::string> keys;
 
     gtkApplication.onActivate([&fileMap, &keys, &window, &listview, &genListEntry, &fileGroupSet, &duplicateListView]() {
         window->show();
 
-        fileGroupSet = backer::FileGroupSet::create("/mnt/exthdd/primary"); // /mnt/exthdd/primary
+        fileGroupSet = backer::FileGroupSet::create("."); // /mnt/exthdd/primary
         fileMap = fileGroupSet.fileMap();
 
         for (auto& pair : fileMap) {
@@ -114,13 +114,13 @@ int main(int argc, char* argv[])
             }
 
             auto front = pair.second.front();
-            if (front.type != backer::FileSystemEntryType::Dir) {
+            if (front->type != backer::FileSystemEntryType::Dir) {
                 continue;
             }
 
             keys.push_back(pair.first);
 //            for(auto& file : pair.second) {
-                listview->addWidget(genListEntry(pair.second.front()));
+                listview->addWidget(genListEntry(*pair.second.front()));
 //            }
         }
 
@@ -129,7 +129,7 @@ int main(int argc, char* argv[])
 
             duplicateListView->clear();
             for (auto& file : fileMap[keys[index]]) {
-                duplicateListView->addWidget(genListEntry(file));
+                duplicateListView->addWidget(genListEntry(*file));
             }
         });
 

@@ -40,14 +40,14 @@ namespace backer {
     void FileIndexDatabase::fillDatabase(std::string path) {
         katla::printInfo("Retreiving file list...");
 
-        auto fileSystemEntry = FileTree::create(path);
+        auto fileSystemEntry = std::shared_ptr<FileSystemEntry>(FileTree::create(path));
 
         auto flatList = FileTree::flatten(fileSystemEntry);
 
         std::vector<std::pair<std::string, std::vector<std::byte>>> fileHashList;
 
         size_t idx = 0;
-        processEntry(fileSystemEntry, fileHashList, idx, flatList.size());
+        processEntry(*fileSystemEntry, fileHashList, idx, flatList.size());
         
         auto openResult = m_database.open();
         if (!openResult) {
@@ -120,7 +120,7 @@ namespace backer {
 
         std::vector<std::vector<std::byte>> dirHashes;
         for (auto& file : entry.children.value()) {
-            auto processResult = processEntry(file, fileHashList, idx, totalCount);
+            auto processResult = processEntry(*file, fileHashList, idx, totalCount);
             dirHashes.push_back(processResult);
         }
 

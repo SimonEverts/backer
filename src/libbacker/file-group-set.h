@@ -37,16 +37,19 @@ public:
 
     void addAndGroupDuplicateFile(std::string path);
 
-    long countFiles(const std::map<std::string, std::vector<backer::FileSystemEntry>>& fileMap);
+    long countFiles(const std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& fileMap);
 
     void hashDir(FileSystemEntry& entry);
+    void findTopLevelDuplicateDirs(std::shared_ptr<FileSystemEntry>& currentEntry,
+                      std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& groupDirectories,
+                      std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& flatList);
 
-    std::map<std::string, std::vector<backer::FileSystemEntry>> fileMap() {
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> fileMap() {
         return m_fileMap;
     }
 
 private:
-    std::map<std::string, std::vector<backer::FileSystemEntry>> m_fileMap;
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> m_fileMap;
 };
 
 } // namespace backer

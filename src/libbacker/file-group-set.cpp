@@ -24,27 +24,27 @@ namespace backer {
     void FileGroupSet::addAndGroupDuplicateFile(std::string path) {
 
         katla::printInfo("Indexing files");
-        auto rootEntry = FileTree::create(path);
+        auto rootEntry = std::shared_ptr<FileSystemEntry>(FileTree::create(path));
 
         katla::printInfo("Flatten file list");
         auto flatList = FileTree::flatten(rootEntry);
 
         katla::printInfo("Group files based on name and size");
-        std::map<std::string, std::vector<backer::FileSystemEntry>> nameSizeGroup;
+        std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> nameSizeGroup;
         for (auto &entry : flatList) {
 
             // Dont process directories at this time
-            if (entry.type == FileSystemEntryType::Dir) {
+            if (entry->type == FileSystemEntryType::Dir) {
                 continue;
             }
 
-            std::string key = katla::format("{}-{}", entry.name, entry.size);
+            std::string key = katla::format("{}-{}", entry->name, entry->size);
 
             auto findIt = nameSizeGroup.find(key);
             if (findIt != nameSizeGroup.end()) {
                 findIt->second.push_back(entry);
             } else {
-                nameSizeGroup[key] = std::vector<FileSystemEntry>{entry};
+                nameSizeGroup[key] = std::vector<std::shared_ptr<FileSystemEntry>>{entry};
             }
         }
 
@@ -53,17 +53,16 @@ namespace backer {
 
         katla::printInfo("Hash possible duplicate files");
 
-        m_fileMap.clear();
-
+        std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> groupDuplicateFiles;
         int fileNr = 0;
         for (auto &pair : nameSizeGroup) {
             auto &&fileGroup = pair.second;
 
             for (auto &file : fileGroup) {
-                katla::print(stdout, "Hash possible duplicates: [{}/{}] {}\n", fileNr, nrOfFiles, file.absolutePath);
+                katla::print(stdout, "Hash possible duplicates: [{}/{}] {}\n", fileNr, nrOfFiles, file->absolutePath);
                 fileNr++;
 
-                if (file.name.empty()) {
+                if (file->name.empty()) {
                     continue;
                 }
 
@@ -79,35 +78,49 @@ namespace backer {
 //                //--
 
                 if (fileGroup.size() < 2) {
-                    m_fileMap[pair.first] = fileGroup;
+                    groupDuplicateFiles[pair.first] = fileGroup;
                     continue;
                 }
 
-                file.hash = Backer::sha256(file.absolutePath);
-                std::string newKey = katla::format("{}-{}", pair.first, backer::Backer::formatHash(file.hash));
-                if (m_fileMap.find(newKey) == m_fileMap.end()) {
-                    m_fileMap[newKey] = {};
+                file->hash = Backer::sha256(file->absolutePath);
+                std::string newKey = katla::format("{}-{}", pair.first, backer::Backer::formatHash(file->hash));
+                if (groupDuplicateFiles.find(newKey) == groupDuplicateFiles.end()) {
+                    groupDuplicateFiles[newKey] = {};
                 }
-                m_fileMap[newKey].push_back(file);
+                groupDuplicateFiles[newKey].push_back(file);
             }
         }
+
+
+        std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> groupDirectories;
 
         katla::printInfo("Hash and group directories");
         for (auto &entry : flatList) {
 
             // Dont process files at this time
-            if (entry.type == FileSystemEntryType::File) {
+            if (entry->type == FileSystemEntryType::File) {
                 continue;
             }
 
-            hashDir(entry);
+            hashDir(*entry);
 
-            std::string key = katla::format("{}-{}", "dir", backer::Backer::formatHash(entry.hash));
-            if (m_fileMap.find(key) == m_fileMap.end()) {
-                m_fileMap[key] = {};
+            std::string key = katla::format("{}-{}", "dir", backer::Backer::formatHash(entry->hash));
+            if (groupDirectories.find(key) == groupDirectories.end()) {
+                groupDirectories[key] = {};
             }
-            m_fileMap[key].push_back(entry);
+            groupDirectories[key].push_back(entry);
+
+            if (groupDirectories[key].size() > 1) {
+                katla::printInfo("found duplicate dir: {} {} {}", groupDirectories[key].size(), entry->absolutePath, key);
+            }
         }
+
+
+        std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> toplevelDirectories;
+        findTopLevelDuplicateDirs(rootEntry, groupDirectories, toplevelDirectories);
+        m_fileMap = toplevelDirectories;
+
+        katla::printInfo("found duplicate dirs: {}", toplevelDirectories.size());
     }
 
     void FileGroupSet::hashDir(FileSystemEntry& currentEntry)
@@ -117,15 +130,16 @@ namespace backer {
         if (currentEntry.children.has_value()) {
             for(auto& childEntry : currentEntry.children.value()) {
 
-                if (childEntry.type == FileSystemEntryType::Dir) {
-                    hashDir(childEntry);
+                if (childEntry->type == FileSystemEntryType::Dir) {
+                    hashDir(*childEntry);
                 }
 
-                if (childEntry.hash.size()) {
-                    dirHashes.push_back(childEntry.hash);
+                if (childEntry->hash.size()) {
+                    dirHashes.push_back(childEntry->hash);
                 } else {
+                    // TODO only in single collection!
                     // if file is unique based on name and size it doesn't have a hash defined. So use the key instead
-                    std::string key = katla::format("{}-{}", childEntry.name, childEntry.size);
+                    std::string key = katla::format("{}-{}", childEntry->name, childEntry->size);
                     auto hash = Backer::sha256FromString(key);
                     dirHashes.push_back(hash);
                 }
@@ -135,7 +149,57 @@ namespace backer {
         currentEntry.hash = Backer::sha256(dirHashes);
     }
 
-    long FileGroupSet::countFiles(const std::map<std::string, std::vector<backer::FileSystemEntry>>& fileMap) {
+    void FileGroupSet::findTopLevelDuplicateDirs(
+            std::shared_ptr<FileSystemEntry>& entry,
+            std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& flatList,
+            std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& topLevelDirectories
+            )
+    {
+        if (entry->type == FileSystemEntryType::File) {
+            return;
+        }
+
+        auto hashFromEntry = [](const FileSystemEntry& entry) {
+            if (entry.type == FileSystemEntryType::Dir) {
+                return katla::format("{}-{}", "dir", backer::Backer::formatHash(entry.hash));
+            }
+
+            auto key = katla::format("{}-{}", entry.name, entry.size);
+            if (entry.hash.empty()) {
+                return key;
+            }
+
+            return katla::format("{}-{}", key, backer::Backer::formatHash(entry.hash));
+        };
+
+
+        auto key = hashFromEntry(*entry);
+
+        katla::printInfo("dir key: {}", key);
+
+        {
+            auto it = flatList.find(key);
+            if (it != flatList.end() && it->second.size() > 1) {
+                topLevelDirectories[key] = it->second;
+                katla::printInfo("found toplevel dir: {}, {}", key, it->second.size());
+                return;
+            }
+        }
+
+        if (entry->children.has_value()) {
+            for(auto& childEntry : entry->children.value()) {
+
+                if (childEntry->type != FileSystemEntryType::Dir) {
+                    continue;
+                }
+
+                findTopLevelDuplicateDirs(childEntry, flatList, topLevelDirectories);
+            }
+        }
+
+    }
+
+    long FileGroupSet::countFiles(const std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& fileMap) {
         long fileCount = 0;
         for (auto &pair : fileMap) {
             for (auto &file : pair.second) {

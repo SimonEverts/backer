@@ -34,15 +34,15 @@ class FileTree {
 public:
     FileTree();
 
-    static FileSystemEntry create(std::string path);
+    static std::unique_ptr<FileSystemEntry> create(std::string path);
 
-    static std::vector<backer::FileSystemEntry> flatten(const FileSystemEntry& entry);
+    static std::vector<std::shared_ptr<backer::FileSystemEntry>> flatten(const std::shared_ptr<FileSystemEntry>& entry);
 
-    static backer::FileSystemEntry fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath);
-    static backer::FileSystemEntry fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath);
+    static std::unique_ptr<backer::FileSystemEntry> fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath);
+    static std::unique_ptr<backer::FileSystemEntry> fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath);
 
 private:
-    static void flattenChild(const FileSystemEntry& entry, std::vector<backer::FileSystemEntry>& list);
+    static void flattenChild(const FileSystemEntry& entry, std::vector<std::shared_ptr<backer::FileSystemEntry>>& list);
 };
 
 } // namespace backer
