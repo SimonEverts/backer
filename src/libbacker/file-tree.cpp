@@ -105,6 +105,10 @@ namespace backer {
             }
             if (entry.is_directory()) {
                 auto childDirData = fileSystemEntryFromDir(entry, basePath);
+                if (!childDirData) {
+                    continue;
+                }
+
                 dirSize += childDirData->size;
                 dirData->children->push_back(std::move(childDirData));
             }      
