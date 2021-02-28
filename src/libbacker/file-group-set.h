@@ -35,7 +35,8 @@ public:
 
     static FileGroupSet create(std::string path);
 
-    void addAndGroupDuplicateFile(std::string path);
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateFiles(std::string path);
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateDirs(std::string path);
 
     long countFiles(const std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& fileMap);
 

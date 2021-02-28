@@ -26,15 +26,57 @@ namespace backer {
         return result;
     }
 
+    FileIndexDatabase FileIndexDatabase::open(std::string path) {
+        FileIndexDatabase result;
+
+        result.openSqliteDatabase(path);
+        return result;
+    }
+
     void FileIndexDatabase::createSqliteDatabase(std::string path) {
         katla::printInfo("Creating file index: {}", path);
 
+        // m_database.init();
         auto createResult = m_database.create(path);
         if (!createResult) {
             throw std::runtime_error(katla::format("Failed creating file-index: {}", createResult.error().message()));
         }
+    }
 
-        m_database.init();
+    void FileIndexDatabase::openSqliteDatabase(std::string path) {
+        katla::printInfo("Opening file index: {}", path);
+
+        // m_database.init();
+        auto openResult = m_database.open(path);
+        if (!openResult) {
+            throw std::runtime_error(katla::format("Failed opening file-index: {}", openResult.error().message()));
+        }
+    }
+
+    std::vector<std::pair<std::string, std::vector<std::byte>>> FileIndexDatabase::getFileIndex() {
+
+        auto result = m_database.exec( "SELECT * FROM fileIndex;");
+        if (result.has_error()) {
+            katla::printError("{}: {}", result.error().message(), result.error().description());
+            return {};
+        }
+
+        for(auto& col : result.value().queryResult->columnNames) {
+            fmt::print("{:<10} ", col);
+        }
+        fmt::print("\n");
+
+        auto& data = result.value().queryResult->data;
+        auto nrOfColumns = result.value().queryResult->nrOfColumns;
+
+        for(int r=0; r<data.size(); r+= nrOfColumns) {
+            for(int c=0; c<nrOfColumns; c++) {
+                fmt::print("{:<10} ", data[r+c]);
+            }
+            fmt::print("\n");
+        }
+
+        m_database.close();
     }
 
     void FileIndexDatabase::fillDatabase(std::string path) {

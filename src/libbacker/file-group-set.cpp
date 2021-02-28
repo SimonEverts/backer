@@ -17,11 +17,11 @@ namespace backer {
 
     FileGroupSet FileGroupSet::create(std::string path) {
         FileGroupSet result;
-        result.addAndGroupDuplicateFile(path);
+        result.m_fileMap = result.listAndGroupDuplicateFiles(path);
         return result;
     }
 
-    void FileGroupSet::addAndGroupDuplicateFile(std::string path) {
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> FileGroupSet::listAndGroupDuplicateFiles(std::string path) {
 
         katla::printInfo("Indexing files");
         auto rootEntry = std::shared_ptr<FileSystemEntry>(FileTree::create(path));
@@ -91,6 +91,16 @@ namespace backer {
             }
         }
 
+        return groupDuplicateFiles;
+    }
+
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> FileGroupSet::listAndGroupDuplicateDirs(std::string path)
+    {
+        katla::printInfo("Indexing files");
+        auto rootEntry = std::shared_ptr<FileSystemEntry>(FileTree::create(path));
+
+        katla::printInfo("Flatten file list");
+        auto flatList = FileTree::flatten(rootEntry);
 
         std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> groupDirectories;
 
@@ -116,11 +126,17 @@ namespace backer {
         }
 
 
+        return groupDirectories;
+
+        // TODO
+
         std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> toplevelDirectories;
         findTopLevelDuplicateDirs(rootEntry, groupDirectories, toplevelDirectories);
         m_fileMap = toplevelDirectories;
 
         katla::printInfo("found duplicate dirs: {}", toplevelDirectories.size());
+
+        return toplevelDirectories;
     }
 
     void FileGroupSet::hashDir(FileSystemEntry& currentEntry)

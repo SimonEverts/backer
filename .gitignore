@@ -4,3 +4,4 @@ CMakeLists.txt.user
 build/
 cmake-build-debug/
 .idea/
+.cache/
