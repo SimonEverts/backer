@@ -39,4 +39,4 @@ add_subdirectory(external/katla/gtk)
 
 add_subdirectory(src/backer-gtk)
 
-#add_subdirectory(tests/unit-tests)
+add_subdirectory(tests/unit-tests)
