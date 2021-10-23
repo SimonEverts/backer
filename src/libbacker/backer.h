@@ -41,8 +41,7 @@ class Backer {
   public:
     static void walkFiles(std::string path,
                    std::map<std::string, std::vector<FileSystemEntry>>& fileMap,
-                   bool addNewFiles = true,
-                   bool isInDest = false);
+                   bool addNewFiles = true);
 
 
 
@@ -51,6 +50,8 @@ class Backer {
     static std::vector<std::byte> sha256FromString(std::string str);
 
     static std::string formatHash(const std::vector<std::byte>& hash);
+    static std::vector<std::byte> parseHashString(const std::string& hashString);
+
     static void writeToFile(std::string filePath, std::map<std::string, FileSystemEntry>& fileData);
 };
 

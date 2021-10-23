@@ -44,8 +44,6 @@ private:
     void openSqliteDatabase(std::string path);
     void fillDatabase(std::string path);
 
-    std::vector<std::byte> processEntry(const FileSystemEntry& entry, std::vector<std::pair<std::string, std::vector<std::byte>>>& fileHashList, size_t& idx, size_t totalCount);
-
     katla::SqliteDatabase m_database;
 };
 

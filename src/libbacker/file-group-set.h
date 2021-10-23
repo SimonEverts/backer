@@ -33,7 +33,8 @@ class FileGroupSet {
 public:
     FileGroupSet();
 
-    static FileGroupSet create(std::string path);
+    static FileGroupSet createForFiles(std::string path);
+    static FileGroupSet createForDirs(std::string path);
 
     std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateFiles(std::string path);
     std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateDirs(std::string path);

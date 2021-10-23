@@ -41,8 +41,6 @@ struct FileSystemEntry
     FileSystemEntryType type {FileSystemEntryType::File};
 
     std::optional<std::vector<std::shared_ptr<FileSystemEntry>>> children;
-
-    bool isInDest { false }; // TODO remove
 };
 
 } // namespace backer

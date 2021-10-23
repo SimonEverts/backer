@@ -55,28 +55,38 @@ namespace backer {
 
     std::vector<std::pair<std::string, std::vector<std::byte>>> FileIndexDatabase::getFileIndex() {
 
-        auto result = m_database.exec( "SELECT * FROM fileIndex;");
-        if (result.has_error()) {
-            katla::printError("{}: {}", result.error().message(), result.error().description());
+        auto queryResult = m_database.exec( "SELECT * FROM fileIndex;");
+        if (queryResult.has_error()) {
+            katla::printError("{}: {}", queryResult.error().message(), queryResult.error().description());
             return {};
         }
 
-        for(auto& col : result.value().queryResult->columnNames) {
-            fmt::print("{:<10} ", col);
-        }
-        fmt::print("\n");
+        auto columnNames = queryResult.value().queryResult->columnNames;
 
-        auto& data = result.value().queryResult->data;
-        auto nrOfColumns = result.value().queryResult->nrOfColumns;
+        auto& data = queryResult.value().queryResult->data;
+        auto nrOfColumns = queryResult.value().queryResult->nrOfColumns;
 
+        std::vector<std::pair<std::string, std::vector<std::byte>>> result;
         for(int r=0; r<data.size(); r+= nrOfColumns) {
+            std::string filePath;
+            std::vector<std::byte> sha256;
+
             for(int c=0; c<nrOfColumns; c++) {
-                fmt::print("{:<10} ", data[r+c]);
+                if (columnNames[c] == "file") {
+                    filePath = data[r+c];
+                }
+
+                if (columnNames[c] == "sha256") {
+                    sha256 = Backer::parseHashString(data[r+c]);
+                }
             }
-            fmt::print("\n");
+
+            result.push_back({filePath, sha256});
         }
 
         m_database.close();
+
+        return result;
     }
 
     void FileIndexDatabase::fillDatabase(std::string path) {
@@ -86,10 +96,7 @@ namespace backer {
 
         auto flatList = FileTree::flatten(fileSystemEntry);
 
-        std::vector<std::pair<std::string, std::vector<std::byte>>> fileHashList;
-
-        size_t idx = 0;
-        processEntry(*fileSystemEntry, fileHashList, idx, flatList.size());
+        FileTree::recursiveHash(*fileSystemEntry);
         
         auto openResult = m_database.open();
         if (!openResult) {
@@ -97,7 +104,7 @@ namespace backer {
             return;
         }
 
-        std::string sqlCreateTableQuery = katla::format("CREATE TABLE IF NOT EXISTS fileIndex (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, file TEXT, sha256 TEXT);");
+        std::string sqlCreateTableQuery = katla::format("CREATE TABLE IF NOT EXISTS fileIndex (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, relativePath TEXT, isDir INTEGER, sha256 TEXT, size INTEGER);");
         auto createTableQueryResult = m_database.exec(sqlCreateTableQuery);
         if (!createTableQueryResult) {
             katla::printError("Creating table failed!: {}", createTableQueryResult.error().message());
@@ -105,9 +112,9 @@ namespace backer {
         }
 
         constexpr int BatchSize = 1024;
-        const int fileHashListSize = fileHashList.size();
+        const int fileHashListSize = flatList.size();
 
-        for (int i = 0; i < fileHashList.size(); i += BatchSize) {
+        for (int i = 0; i < flatList.size(); i += BatchSize) {
 
             auto beginTransactionResult = m_database.exec("BEGIN TRANSACTION;");
             if (!beginTransactionResult) {
@@ -116,16 +123,20 @@ namespace backer {
             }
 
             for (int batchIndex = 0; batchIndex < BatchSize; batchIndex++) {
-                if ((i + batchIndex) >= fileHashList.size()) {
+                if ((i + batchIndex) >= flatList.size()) {
                     break;
                 }
 
-                auto& pair = fileHashList[i + batchIndex];
-                if (pair.first.size() == 0) {
+                auto& entry = flatList[i + batchIndex];
+                if (entry->relativePath.empty() || entry->size == 0) {
                     continue;
                 }
 
-                std::vector<std::pair<std::string, std::string>> values = {{"file", pair.first}, {"sha256", Backer::formatHash(pair.second)}};
+                std::vector<std::pair<std::string, std::string>> values = {
+                        {"relativePath", entry->relativePath},
+                        {"isDir", entry->type == backer::FileSystemEntryType::Dir ? "1" : "0"},
+                        {"sha256", Backer::formatHash(entry->hash)},
+                        {"size", katla::format("{}", entry->size)}};
 
                 auto insertQueryResult = m_database.insert("fileIndex", values);
                 if (!insertQueryResult) {
@@ -144,32 +155,6 @@ namespace backer {
         }
 
         m_database.close();
-    }
-
-    std::vector<std::byte> FileIndexDatabase::processEntry(const FileSystemEntry& entry, std::vector<std::pair<std::string, std::vector<std::byte>>>& fileHashList, size_t& idx, size_t totalCount)
-    {
-        if (entry.type == FileSystemEntryType::File) {
-            auto sha256 = Backer::sha256(entry.absolutePath);
-
-            fileHashList.push_back({entry.relativePath, sha256});
-            katla::printInfo("{}/{} {}", ++idx, totalCount, entry.relativePath);
-            return sha256;
-        }
-
-        if (entry.type != FileSystemEntryType::Dir) {
-            return {};
-        }
-
-        std::vector<std::vector<std::byte>> dirHashes;
-        for (auto& file : entry.children.value()) {
-            auto processResult = processEntry(*file, fileHashList, idx, totalCount);
-            dirHashes.push_back(processResult);
-        }
-
-        katla::printInfo("{}/{} {}", ++idx, totalCount, entry.relativePath);
-        auto result = Backer::sha256(dirHashes);
-        fileHashList.push_back({entry.relativePath, result});
-        return result;
     }
 
 } // namespace backer

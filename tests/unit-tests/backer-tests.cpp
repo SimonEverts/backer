@@ -24,7 +24,14 @@
 #include <variant>
 
 namespace backer {
-
+/*
+- duplicate file test
+- different file test
+- group potential file test
+- group potential dir test
+- only toplevel dir test
+- toplevel with only duplicates
+*/
     TEST(BackerTests, DuplicateFileTest) {
         auto hash1 = Backer::sha256(katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/duplicate-test/dup1"));
         auto hash2 = Backer::sha256(katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/duplicate-test/dup2"));
@@ -40,12 +47,34 @@ namespace backer {
     }
 
     TEST(BackerTests, GroupPotentialDuplicateFileTest) {
-        auto fileGroupSet = FileGroupSet::create((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/group-potential-duplicates")));
+        auto fileGroupSet = FileGroupSet::createForFiles((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/group-potential-duplicate-files")));
         auto fileMap = fileGroupSet.fileMap();
+
+        // for(auto& it : fileMap) {
+        //     katla::printInfo("{}-{}", it.first, it.second.size());
+        // }
+
         ASSERT_TRUE(fileMap.size() == 3) << "Expected 3 groups";
         ASSERT_TRUE(fileMap["diff1-6"].size() == 1);
         ASSERT_TRUE(fileMap["diff2-6"].size() == 1);
-        ASSERT_TRUE(fileMap["dup-4"].size() == 2);
+        ASSERT_TRUE(fileMap["dup-4-94DD9502B0AE09B64CD5A874E165EA17F002F71A3E6C88E9BA9F3A48ADFCF443"].size() == 2);
+    }
+
+    TEST(BackerTests, GroupPotentialDuplicateDirTest) {
+        auto fileGroupSet = FileGroupSet::createForDirs((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/group-potential-duplicate-dirs")));
+        auto fileMap = fileGroupSet.fileMap();
+
+        for(auto& it : fileMap) {
+            katla::printInfo("{}-{}", it.first, it.second.size());
+            for(auto& x : it.second) {
+                katla::printInfo("{}-{}", x->relativePath, backer::Backer::formatHash(x->hash));
+            }
+        }
+
+        ASSERT_TRUE(fileMap.size() == 3) << "Expected 3 groups";
+        ASSERT_TRUE(fileMap["diff1-6"].size() == 1);
+        ASSERT_TRUE(fileMap["diff2-6"].size() == 1);
+        ASSERT_TRUE(fileMap["dup-4-94DD9502B0AE09B64CD5A874E165EA17F002F71A3E6C88E9BA9F3A48ADFCF443"].size() == 2);
     }
 
     outcome::result<std::string> createTemporaryDir() {

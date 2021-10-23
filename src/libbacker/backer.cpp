@@ -22,12 +22,12 @@ namespace backer {
 
         SHA256_CTX ctx;
         if (!SHA256_Init(&ctx)) {
-            throw new std::runtime_error("Failed initiaizing md5 context!");
+            throw std::runtime_error("Failed initiaizing md5 context!");
         }
 
         auto fileSizeResult = file.size();
         if (!fileSizeResult) {
-            throw new std::runtime_error("Failed reading file size!");
+            throw std::runtime_error("Failed reading file size!");
         }
 
         int nrOfIter = (fileSizeResult.value() / readBufferSize) + 1;
@@ -36,7 +36,7 @@ namespace backer {
             auto readResult = file.read(readSpan);
 
             if (!readResult) {
-                throw new std::runtime_error("Failed reading file!");
+                throw std::runtime_error("Failed reading file!");
             }
 
             SHA256_Update(&ctx, reinterpret_cast<const unsigned char *>(readBuffer.data()), readResult.value());
@@ -82,8 +82,7 @@ namespace backer {
 
     void Backer::walkFiles(std::string path,
                            std::map<std::string, std::vector<FileSystemEntry>> &fileMap,
-                           bool addNewFiles,
-                           bool isInDest) {
+                           bool addNewFiles) {
         fs::recursive_directory_iterator dirIter(path);
         for (auto &entry : dirIter) {
             if (entry.is_symlink() || entry.is_other()) {
@@ -103,7 +102,6 @@ namespace backer {
                 fileData.absolutePath = absolutePathResult.value();
 
                 fileData.size = entry.file_size();
-                fileData.isInDest = isInDest;
 
                 std::string key = katla::format("{}-{}", fileData.name, fileData.size);
 
@@ -125,6 +123,18 @@ namespace backer {
         }
 
         return ss.str();
+    }
+
+    std::vector<std::byte> Backer::parseHashString(const std::string& hashString) {
+        std::vector<std::byte> bytes;
+
+        for (unsigned int i = 0; i < hashString.length(); i += 2) {
+            std::string byteString = hashString.substr(i, 2);
+            std::byte byte = static_cast<std::byte>(strtol(byteString.c_str(), nullptr, 16));
+            bytes.push_back(byte);
+        }
+
+        return bytes;
     }
 
     void Backer::writeToFile(std::string filePath, std::map<std::string, FileSystemEntry> &fileData) {

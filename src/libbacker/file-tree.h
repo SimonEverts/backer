@@ -41,6 +41,8 @@ public:
     static std::unique_ptr<backer::FileSystemEntry> fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath);
     static std::unique_ptr<backer::FileSystemEntry> fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath);
 
+    static void recursiveHash(FileSystemEntry& entry);
+
 private:
     static void flattenChild(const FileSystemEntry& entry, std::vector<std::shared_ptr<backer::FileSystemEntry>>& list);
 };

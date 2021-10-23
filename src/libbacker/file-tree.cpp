@@ -2,6 +2,8 @@
 
 #include "katla/core/posix-file.h"
 
+#include "backer.h"
+
 #include <filesystem>
 #include <openssl/md5.h>
 
@@ -67,8 +69,10 @@ namespace backer {
         }
 
         auto dirData = std::make_unique<FileSystemEntry>();
+        dirData->type = backer::FileSystemEntryType::Dir;
         dirData->name = entry.path().filename().string();
         dirData->relativePath = fs::relative(entry.path(), basePath).string();
+        katla::printInfo("{}, {}", dirData->relativePath, dirData->type);
 
         auto absolutePathResult = katla::PosixFile::absolutePath(entry.path().string());
         if (!absolutePathResult) {
@@ -115,9 +119,40 @@ namespace backer {
         }
 
         dirData->size = dirSize;
-        dirData->type = FileSystemEntryType::Dir;
 
         return dirData;
+    }
+
+    // TODO test
+    void FileTree::recursiveHash(FileSystemEntry& entry) {
+        std::vector<std::vector<std::byte>> dirHashes;
+
+        if (entry.type == FileSystemEntryType::File) {
+            auto sha256 = Backer::sha256(entry.absolutePath);
+            entry.hash = std::move(sha256);
+            return;
+        }
+
+        if (entry.children.has_value()) {
+            for(auto& childEntry : entry.children.value()) {
+
+                if (childEntry->type == FileSystemEntryType::Dir) {
+                    recursiveHash(*childEntry);
+                }
+
+                if (childEntry->type == FileSystemEntryType::File) {
+                    auto sha256 = Backer::sha256(entry.absolutePath);
+                    childEntry->hash = std::move(sha256); // childEntry.hash?
+                }
+
+                if (childEntry->hash.size()) {
+                    dirHashes.push_back(childEntry->hash);
+                }
+            }
+        }
+
+        // also calculate empty hash for empty dirs
+        entry.hash = backer::Backer::sha256(dirHashes);
     }
 
 } // namespace backer
