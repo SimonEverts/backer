@@ -53,7 +53,7 @@ namespace backer {
         }
     }
 
-    std::vector<std::pair<std::string, std::vector<std::byte>>> FileIndexDatabase::getFileIndex() {
+    std::vector<FileSystemEntry> FileIndexDatabase::getFileIndex() {
 
         auto queryResult = m_database.exec( "SELECT * FROM fileIndex;");
         if (queryResult.has_error()) {
@@ -66,22 +66,31 @@ namespace backer {
         auto& data = queryResult.value().queryResult->data;
         auto nrOfColumns = queryResult.value().queryResult->nrOfColumns;
 
-        std::vector<std::pair<std::string, std::vector<std::byte>>> result;
+        std::vector<FileSystemEntry> result;
         for(int r=0; r<data.size(); r+= nrOfColumns) {
             std::string filePath;
             std::vector<std::byte> sha256;
-
+            
+            FileSystemEntry entry;
             for(int c=0; c<nrOfColumns; c++) {
-                if (columnNames[c] == "file") {
-                    filePath = data[r+c];
+                if (columnNames[c] == "relativePath") {
+                    entry.relativePath = data[r+c];
                 }
 
                 if (columnNames[c] == "sha256") {
-                    sha256 = Backer::parseHashString(data[r+c]);
+                    entry.hash = Backer::parseHashString(data[r+c]);
+                }
+
+                if (columnNames[c] == "size") {
+                    entry.size = stol (data[r+c]);
+                }
+
+                if (columnNames[c] == "isDir") {
+                    entry.type = (stol (data[r+c]) != 0) ? FileSystemEntryType::Dir : FileSystemEntryType::File;
                 }
             }
 
-            result.push_back({filePath, sha256});
+            result.push_back(entry);
         }
 
         m_database.close();
@@ -135,7 +144,7 @@ namespace backer {
                 std::vector<std::pair<std::string, std::string>> values = {
                         {"relativePath", entry->relativePath},
                         {"isDir", entry->type == backer::FileSystemEntryType::Dir ? "1" : "0"},
-                        {"sha256", Backer::formatHash(entry->hash)},
+                        {"sha256", Backer::formatHash(entry->hash.value())},
                         {"size", katla::format("{}", entry->size)}};
 
                 auto insertQueryResult = m_database.insert("fileIndex", values);

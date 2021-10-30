@@ -35,7 +35,10 @@ public:
     DirGroupSet();
 
     static DirGroupSet createFromPath(std::string path, bool onlyTopDirs);
-    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateDirs(std::string path, bool onlyTopDirs);
+    static DirGroupSet createFromFlattenedList(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs);
+
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>
+    listAndGroupDuplicateDirs(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs);
 
 private:
     void removeDuplicateEntriesWithDuplicateParent(std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& groupedDirectories);

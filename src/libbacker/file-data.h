@@ -36,7 +36,7 @@ struct FileSystemEntry
     std::string relativePath;
     std::string absolutePath;
     uint64_t size { 0 };
-    std::vector<std::byte> hash;
+    std::optional<std::vector<std::byte>> hash;
 
     FileSystemEntryType type {FileSystemEntryType::File};
 

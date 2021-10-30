@@ -41,10 +41,12 @@ public:
     static std::unique_ptr<backer::FileSystemEntry> fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath, std::optional<std::weak_ptr<FileSystemEntry>> parent);
     static std::shared_ptr<backer::FileSystemEntry> fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath, std::optional<std::weak_ptr<FileSystemEntry>> parent);
 
+    static void fillDataFromIndex(FileSystemEntry& entry, const std::vector<FileSystemEntry>& index);
     static void recursiveHash(FileSystemEntry& entry);
 
 private:
     static void flattenChild(const FileSystemEntry& entry, std::vector<std::shared_ptr<backer::FileSystemEntry>>& list);
+    static void fillDataFromIndexRecursive(FileSystemEntry& entry, const std::map<std::string, FileSystemEntry>& index);
 };
 
 } // namespace backer

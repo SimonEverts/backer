@@ -1,5 +1,6 @@
 #include "file-tree.h"
 
+#include "core/core.h"
 #include "katla/core/posix-file.h"
 
 #include "backer.h"
@@ -136,36 +137,63 @@ namespace backer {
         return dirData;
     }
 
-    // TODO test
-    void FileTree::recursiveHash(FileSystemEntry& entry) {
-        std::vector<std::vector<std::byte>> dirHashes;
+    void FileTree::fillDataFromIndex(FileSystemEntry& entry, const std::vector<FileSystemEntry>& index)
+    {
+        auto basePath = entry.absolutePath;
 
-        if (entry.type == FileSystemEntryType::File) {
-            auto sha256 = Backer::sha256(entry.absolutePath);
-            entry.hash = std::move(sha256);
+        // convert index to a map using relativePath
+        std::map<std::string, FileSystemEntry> indexMap;
+        for(const auto& it : index) {
+            indexMap[it.relativePath] = it;
+        } 
+
+        fillDataFromIndexRecursive(entry, indexMap);
+    }
+
+    void FileTree::fillDataFromIndexRecursive(FileSystemEntry& entry, const std::map<std::string, FileSystemEntry>& index)
+    {
+        auto findIt = index.find(entry.relativePath);
+        if (findIt != index.end()) {
+            entry.hash = findIt->second.hash;
+            entry.size = findIt->second.size;
+        }
+
+        if (entry.type == FileSystemEntryType::File) {   
             return;
         }
 
         if (entry.children.has_value()) {
             for(auto& childEntry : entry.children.value()) {
+                fillDataFromIndexRecursive(*childEntry, index);
+            }
+        }
+    }
 
-                if (childEntry->type == FileSystemEntryType::Dir) {
-                    recursiveHash(*childEntry);
-                }
+    void FileTree::recursiveHash(FileSystemEntry& entry) {
 
-                if (childEntry->type == FileSystemEntryType::File) {
-                    auto sha256 = Backer::sha256(entry.absolutePath);
-                    childEntry->hash = std::move(sha256); // childEntry.hash?
-                }
+        if (entry.type == FileSystemEntryType::File) {
+            if (!entry.hash) {
+                auto sha256 = Backer::sha256(entry.absolutePath);
+                entry.hash = std::move(sha256);
+            }
+            return;
+        }
 
-                if (childEntry->hash.size()) {
-                    dirHashes.push_back(childEntry->hash);
+        std::vector<std::vector<std::byte>> dirHashes;
+        if (entry.children.has_value()) {
+            for(auto& childEntry : entry.children.value()) {
+                recursiveHash(*childEntry);
+
+                if (childEntry->hash.has_value() && childEntry->hash.value().size()) {
+                    dirHashes.push_back(childEntry->hash.value());
                 }
             }
         }
 
         // also calculate empty hash for empty dirs
-        entry.hash = backer::Backer::sha256(dirHashes);
+        if (!entry.hash.has_value()) {
+            entry.hash = backer::Backer::sha256(dirHashes);
+        }
     }
 
 } // namespace backer

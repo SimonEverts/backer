@@ -40,9 +40,9 @@ struct CountResult
 
 class Backer {
   public:
-    static void walkFiles(std::string path,
-                   std::map<std::string, std::vector<FileSystemEntry>>& fileMap,
-                   bool addNewFiles = true);
+    // static void walkFiles(std::string path,
+    //                std::map<std::string, std::vector<FileSystemEntry>>& fileMap,
+    //                bool addNewFiles = true);
 
 
 

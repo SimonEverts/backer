@@ -15,22 +15,30 @@ namespace backer {
     DirGroupSet::DirGroupSet() = default;
 
     DirGroupSet DirGroupSet::createFromPath(std::string path, bool onlyTopDirs) {
-        DirGroupSet result;
-        result.m_fileMap = result.listAndGroupDuplicateDirs(path, onlyTopDirs);
-        return result;
-    }
-
-    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> DirGroupSet::listAndGroupDuplicateDirs(std::string path, bool onlyTopDirs)
-    {
+        
         katla::printInfo("Indexing files");
         auto rootEntry = std::shared_ptr<FileSystemEntry>(FileTree::create(path));
 
         katla::printInfo("Flatten file list");
         auto flatList = FileTree::flatten(rootEntry);
+        
+        DirGroupSet result;
+        result.m_fileMap = result.listAndGroupDuplicateDirs(flatList, onlyTopDirs);
+        return result;
+    }
 
+    DirGroupSet DirGroupSet::createFromFlattenedList(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs) {
+        DirGroupSet result;
+        result.m_fileMap = result.listAndGroupDuplicateDirs(flattenedList, onlyTopDirs);
+        return result;
+    }
+
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>
+    DirGroupSet::listAndGroupDuplicateDirs(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs)
+    {
         katla::printInfo("Group files based on name and size");
         std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> nameSizeGroup;
-        for (auto &entry : flatList) {
+        for (auto &entry : flattenedList) {
 
             // Dont process directories at this time
             if (entry->type == FileSystemEntryType::Dir) {
@@ -81,8 +89,10 @@ namespace backer {
                     continue;
                 }
 
-                file->hash = Backer::sha256(file->absolutePath);
-                std::string newKey = katla::format("{}-{}", pair.first, backer::Backer::formatHash(file->hash));
+                if (!file->hash.has_value()) {
+                    file->hash = Backer::sha256(file->absolutePath);
+                }
+                std::string newKey = katla::format("{}-{}", pair.first, backer::Backer::formatHash(file->hash.value()));
                 if (groupDuplicateFiles.find(newKey) == groupDuplicateFiles.end()) {
                     groupDuplicateFiles[newKey] = {};
                 }
@@ -93,7 +103,7 @@ namespace backer {
         std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> groupDirectories;
 
         katla::printInfo("Hash and group directories");
-        for (auto &entry : flatList) {
+        for (auto &entry : flattenedList) {
 
             // Dont process files at this time
             if (entry->type == FileSystemEntryType::File) {
@@ -102,7 +112,7 @@ namespace backer {
 
             hashDir(*entry);
 
-            std::string key = katla::format("{}-{}", "dir", backer::Backer::formatHash(entry->hash));
+            std::string key = katla::format("{}-{}", "dir", backer::Backer::formatHash(entry->hash.value()));
             if (groupDirectories.find(key) == groupDirectories.end()) {
                 groupDirectories[key] = {};
             }
@@ -150,7 +160,7 @@ namespace backer {
                     continue;
                 }
 
-                auto parentHash = backer::Backer::formatHash(dubIt->parent->lock()->hash);
+                auto parentHash = backer::Backer::formatHash(dubIt->parent->lock()->hash.value());
                 auto key = katla::format("dir-{}", parentHash);
 
                 // if parent is not in groupdirs and not a duplicate, skip to next
@@ -172,11 +182,11 @@ namespace backer {
                     }
                     auto parent = parentOpt.value().lock();
 
-                    auto childHash = backer::Backer::formatHash((*childIt)->hash);
-                    auto parentHash = backer::Backer::formatHash(parent->hash);
+                    auto childHash = backer::Backer::formatHash((*childIt)->hash.value());
+                    auto parentHash = backer::Backer::formatHash(parent->hash.value());
                     
-                    auto removeHash = backer::Backer::formatHash(removeIt->hash);
-                    auto removeParentHash = backer::Backer::formatHash(removeIt->parent->lock()->hash);
+                    auto removeHash = backer::Backer::formatHash(removeIt->hash.value());
+                    auto removeParentHash = backer::Backer::formatHash(removeIt->parent->lock()->hash.value());
 
                     // Remove childs with the same parent, but only for that parent
                     if (parentHash == removeParentHash && childHash == removeHash) {

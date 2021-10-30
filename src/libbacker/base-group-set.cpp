@@ -25,8 +25,8 @@ namespace backer {
                     hashDir(*childEntry);
                 }
 
-                if (childEntry->hash.size()) {
-                    dirHashes.push_back(childEntry->hash);
+                if (childEntry->hash.has_value() && childEntry->hash.value().size()) {
+                    dirHashes.push_back(childEntry->hash.value());
                 } else {
                     // TODO only in single collection!
                     // if file is unique based on name and size it doesn't have a hash defined. So use the key instead

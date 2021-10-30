@@ -2,6 +2,7 @@
 #include "katla/core/posix-file.h"
 
 #include "libbacker/backer.h"
+#include "libbacker/file-tree.h"
 #include "libbacker/file-group-set.h"
 #include "libbacker/file-index-database.h"
 
@@ -106,10 +107,10 @@ int main(int argc, char* argv[])
                 auto fileIndexPath = katla::format("{}/file-index.db.sqlite", path);
 
                 auto fileIndex = backer::FileIndexDatabase::open(fileIndexPath);
-                auto fileHashes = fileIndex.getFileIndex();
+                auto fileList = fileIndex.getFileIndex();
 
-                for (auto &it : fileHashes) {
-                    katla::printInfo("{:<20} {}", backer::Backer::formatHash(it.second), it.first);
+                for (auto &it : fileList) {
+                    katla::printInfo("{:<20} {}", backer::Backer::formatHash(it.hash.value()), it.relativePath);
                 }
 
             } catch (std::runtime_error ex) {
@@ -117,7 +118,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        if (command == "find-cleanup-dirs-from-index") {
+        if (command == "find-duplicate-dirs-from-index") {
             try {
                 std::string path = ".";
                 if (optionsResult.count("args")) {
@@ -133,11 +134,39 @@ int main(int argc, char* argv[])
                 auto fileIndexPath = katla::format("{}/file-index.db.sqlite", path);
 
                 auto fileIndex = backer::FileIndexDatabase::open(fileIndexPath);
-                auto fileHashes = fileIndex.getFileIndex();
+                auto fileList = fileIndex.getFileIndex();
 
-                for (auto &it : fileHashes) {
-                    katla::printInfo("{:<20} {}\n", backer::Backer::formatHash(it.second), it.first);
+                auto fileTree = backer::FileTree::create(path);
+                backer::FileTree::fillDataFromIndex(*fileTree, fileList);
+                backer::FileTree::recursiveHash(*fileTree);
+
+                auto flatList = backer::FileTree::flatten(fileTree);
+
+                auto dirGroup = backer::DirGroupSet::createFromFlattenedList(flatList, true);
+                auto dupList = dirGroup.fileMap();
+
+                katla::printInfo("Duplicates:");
+                for(auto& groupIt : dupList) {
+                    if(groupIt.second.size() < 2) {
+                        continue;
+                    }
+                    katla::printInfo("-");
+                    for(auto& entryIt : groupIt.second) {
+                        katla::printInfo("  {:<20} {}", entryIt->hash.has_value() ? backer::Backer::formatHash(entryIt->hash.value()) : "", entryIt->relativePath);
+                    }
                 }
+
+                // std::function<void(backer::FileSystemEntry&)> printRecursiveTree;
+                // printRecursiveTree = [&printRecursiveTree](backer::FileSystemEntry& entry) {
+                //     katla::printInfo("{:<20} {}", entry.hash.has_value() ? backer::Backer::formatHash(entry.hash.value()) : "", entry.relativePath);
+                //     if(entry.type == backer::FileSystemEntryType::Dir) {
+                //         for(auto& it : entry.children.value()) {
+                //             printRecursiveTree(*it);
+                //         }
+                //     }
+                // };
+
+                // printRecursiveTree(*fileTree);
 
             } catch (std::runtime_error ex) {
                 katla::printError(ex.what());

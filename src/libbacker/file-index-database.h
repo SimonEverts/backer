@@ -37,7 +37,7 @@ public:
     static FileIndexDatabase create(std::string indexDatabasePath, std::string indexSource);
     static FileIndexDatabase open(std::string path);
 
-    std::vector<std::pair<std::string, std::vector<std::byte>>> getFileIndex();
+    std::vector<FileSystemEntry> getFileIndex();
 
 private:
     void createSqliteDatabase(std::string path);

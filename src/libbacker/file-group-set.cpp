@@ -16,22 +16,23 @@ namespace backer {
     }
 
     FileGroupSet FileGroupSet::createFromPath(std::string path) {
-        FileGroupSet result;
-        result.m_fileMap = result.listAndGroupDuplicateFiles(path);
-        return result;
-    }
-
-    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> FileGroupSet::listAndGroupDuplicateFiles(std::string path) {
-
+        
         katla::printInfo("Indexing files");
         auto rootEntry = std::shared_ptr<FileSystemEntry>(FileTree::create(path));
 
         katla::printInfo("Flatten file list");
         auto flatList = FileTree::flatten(rootEntry);
 
+        FileGroupSet result;
+        result.m_fileMap = result.listAndGroupDuplicateFiles(flatList);
+        return result;
+    }
+
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> FileGroupSet::listAndGroupDuplicateFiles(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList) {
+
         katla::printInfo("Group files based on name and size");
         std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> nameSizeGroup;
-        for (auto &entry : flatList) {
+        for (auto &entry : flattenedList) {
 
             // Dont process directories at this time
             if (entry->type == FileSystemEntryType::Dir) {
@@ -82,8 +83,11 @@ namespace backer {
                     continue;
                 }
 
-                file->hash = Backer::sha256(file->absolutePath);
-                std::string newKey = katla::format("{}-{}", pair.first, backer::Backer::formatHash(file->hash));
+                if (!file->hash.has_value()) {
+                    file->hash = Backer::sha256(file->absolutePath);
+                }
+                
+                std::string newKey = katla::format("{}-{}", pair.first, backer::Backer::formatHash(file->hash.value()));
                 if (groupDuplicateFiles.find(newKey) == groupDuplicateFiles.end()) {
                     groupDuplicateFiles[newKey] = {};
                 }
