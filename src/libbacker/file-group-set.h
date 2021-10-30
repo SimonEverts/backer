@@ -34,10 +34,10 @@ public:
     FileGroupSet();
 
     static FileGroupSet createForFiles(std::string path);
-    static FileGroupSet createForDirs(std::string path);
+    static FileGroupSet createForDirs(std::string path, bool onlyTopDirs);
 
     std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateFiles(std::string path);
-    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateDirs(std::string path);
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateDirs(std::string path, bool onlyTopDirs);
 
     long countFiles(const std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& fileMap);
 

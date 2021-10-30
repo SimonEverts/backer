@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <openssl/md5.h>
+#include <optional>
 
 namespace backer {
 
@@ -14,12 +15,16 @@ namespace backer {
     FileTree::FileTree() {
     }
 
-    std::unique_ptr<FileSystemEntry> FileTree::create(std::string path) {
-        return fileSystemEntryFromDir(fs::directory_entry(fs::path(path)), path);
+    std::shared_ptr<FileSystemEntry> FileTree::create(std::string path) {
+        return fileSystemEntryFromDir(fs::directory_entry(fs::path(path)), path, {});
     }
 
     std::vector<std::shared_ptr<backer::FileSystemEntry>> FileTree::flatten(const std::shared_ptr<FileSystemEntry>& entry)
     {
+        if(!entry) {
+            return {};
+        }
+
         std::vector<std::shared_ptr<FileSystemEntry>> files;
         files.push_back(entry);
 
@@ -40,7 +45,7 @@ namespace backer {
         }
     }
 
-    std::unique_ptr<FileSystemEntry> FileTree::fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath)
+    std::unique_ptr<FileSystemEntry> FileTree::fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath, std::optional<std::weak_ptr<FileSystemEntry>> parent)
     {
         if (!entry.is_regular_file()) {
             return {};
@@ -59,16 +64,20 @@ namespace backer {
         fileData->size = entry.file_size();
         fileData->type = FileSystemEntryType::File;
 
+        if (parent.has_value()) {
+            fileData->parent = parent.value();
+        }
+
         return fileData;
     }
 
-    std::unique_ptr<FileSystemEntry> FileTree::fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath)
+    std::shared_ptr<FileSystemEntry> FileTree::fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath, std::optional<std::weak_ptr<FileSystemEntry>> parent)
     {
         if (!entry.is_directory()) {
             return {};
         }
 
-        auto dirData = std::make_unique<FileSystemEntry>();
+        auto dirData = std::make_shared<FileSystemEntry>();
         dirData->type = backer::FileSystemEntryType::Dir;
         dirData->name = entry.path().filename().string();
         dirData->relativePath = fs::relative(entry.path(), basePath).string();
@@ -80,6 +89,10 @@ namespace backer {
         }
 
         dirData->absolutePath = absolutePathResult.value();
+
+        if (parent.has_value()) {
+            dirData->parent = parent.value();
+        }
 
         // TODO: ignore node_modules and .git for now
         std::size_t found = dirData->absolutePath.find("node_modules");
@@ -103,12 +116,12 @@ namespace backer {
             }
 
             if (entry.is_regular_file() ) {
-                auto childFileData = fileSystemEntryFromFile(entry, basePath);
+                auto childFileData = fileSystemEntryFromFile(entry, basePath, dirData);
                 dirSize += childFileData->size;
                 dirData->children->push_back(std::move(childFileData));
             }
             if (entry.is_directory()) {
-                auto childDirData = fileSystemEntryFromDir(entry, basePath);
+                auto childDirData = fileSystemEntryFromDir(entry, basePath, dirData);
                 if (!childDirData) {
                     continue;
                 }

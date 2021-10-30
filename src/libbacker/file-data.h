@@ -40,6 +40,7 @@ struct FileSystemEntry
 
     FileSystemEntryType type {FileSystemEntryType::File};
 
+    std::optional<std::weak_ptr<FileSystemEntry>> parent;
     std::optional<std::vector<std::shared_ptr<FileSystemEntry>>> children;
 };
 

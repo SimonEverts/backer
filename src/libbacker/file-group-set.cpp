@@ -1,16 +1,16 @@
 #include "file-group-set.h"
 
+#include "core/core.h"
 #include "katla/core/posix-file.h"
 
 #include "backer.h"
 #include "file-tree.h"
 
 #include <filesystem>
+#include <memory>
 #include <openssl/md5.h>
 
 namespace backer {
-
-    namespace fs = std::filesystem;
 
     FileGroupSet::FileGroupSet() {
     }
@@ -21,9 +21,9 @@ namespace backer {
         return result;
     }
 
-    FileGroupSet FileGroupSet::createForDirs(std::string path) {
+    FileGroupSet FileGroupSet::createForDirs(std::string path, bool onlyTopDirs) {
         FileGroupSet result;
-        result.m_fileMap = result.listAndGroupDuplicateDirs(path);
+        result.m_fileMap = result.listAndGroupDuplicateDirs(path, onlyTopDirs);
         return result;
     }
 
@@ -100,7 +100,7 @@ namespace backer {
         return groupDuplicateFiles;
     }
 
-    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> FileGroupSet::listAndGroupDuplicateDirs(std::string path)
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> FileGroupSet::listAndGroupDuplicateDirs(std::string path, bool onlyTopDirs)
     {
         katla::printInfo("Indexing files");
         auto rootEntry = std::shared_ptr<FileSystemEntry>(FileTree::create(path));
@@ -193,18 +193,98 @@ namespace backer {
             }
         }
 
+        if (onlyTopDirs) {
+
+            for(auto& it : groupDirectories) {
+                katla::printInfo("{}-{}", it.first, it.second.size());
+                for(auto& x : it.second) {
+                    katla::printInfo(" - {}-{}", x->relativePath, backer::Backer::formatHash(x->hash));
+                }
+            }
+
+            // Remove subdir's with same parent hash
+            // TODO own method
+            for(auto& flatIt : groupDirectories) {
+                // Don't interested if current entry is not a duplicate
+                if (flatIt.second.size() < 2) {
+                    continue;
+                }
+
+                std::map<std::string, std::vector<std::shared_ptr<FileSystemEntry>>> parentLut;
+                for(auto& dubIt : flatIt.second) {
+                    if (!dubIt->parent.has_value()) {
+                        continue;
+                    }
+
+                    // katla::printInfo("dup child: {}", dubIt->absolutePath);
+
+                    auto parentHash = backer::Backer::formatHash(dubIt->parent->lock()->hash);
+                    auto key = katla::format("dir-{}", parentHash);
+
+                    auto findIt = groupDirectories.find(key);
+                    if (findIt == parentLut.end()) {
+                        continue;
+                    }
+                    parentLut[parentHash].push_back(dubIt);
+                }
+
+                for(auto& parentIt : parentLut) {
+                    if (parentIt.second.size() > 1) {
+                        for(auto& dubIt : parentIt.second) {
+                            katla::printInfo("dup child parent: {} {} {}", parentIt.first, parentIt.second.size(), dubIt->absolutePath);
+                        }
+                    }
+                }
+
+                // Schedule delete of duplicate childs with same parent that is a duplicate
+                std::vector<std::shared_ptr<FileSystemEntry>> removeList;
+                for(auto& parentIt : parentLut) {
+                    if (parentIt.second.size() > 1) {
+                        for(auto& dubIt : parentIt.second) {
+                            // katla::printInfo("remove child 1: {}", dubIt->absolutePath);
+                            removeList.push_back(dubIt);
+                        }
+                    }
+                }
+
+                for (auto& removeIt : removeList) {
+                    auto& childList = flatIt.second;
+                    auto childIt = std::begin(childList);
+                    while (childIt != std::end(childList)) {
+                        auto& parentOpt = (*childIt)->parent;
+                        if (!parentOpt.has_value()) {
+                            continue;
+                        }
+                        auto childHash = backer::Backer::formatHash((*childIt)->hash);
+                        auto parent = parentOpt.value().lock();
+                        auto parentHash = backer::Backer::formatHash(parent->hash);
+                        
+                        auto removeHash = backer::Backer::formatHash(removeIt->hash);
+                        auto removeParentHash = backer::Backer::formatHash(removeIt->parent->lock()->hash);
+
+                        // Remove childs with the same parent, but only for that parent
+                        if (parentHash == removeParentHash && childHash == removeHash) {
+                            // katla::printInfo("remove child 2: {}", (*childIt)->absolutePath);
+                            childIt = childList.erase(childIt);
+                        } else {
+                            ++childIt;
+                        }
+                    }                    
+                }
+            }
+        }
 
         return groupDirectories;
 
-        // TODO
+        // // TODO
 
-        std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> toplevelDirectories;
-        findTopLevelDuplicateDirs(rootEntry, groupDirectories, toplevelDirectories);
-        m_fileMap = toplevelDirectories;
+        // std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> toplevelDirectories;
+        // findTopLevelDuplicateDirs(rootEntry, groupDirectories, toplevelDirectories);
+        // m_fileMap = toplevelDirectories;
 
-        katla::printInfo("found duplicate dirs: {}", toplevelDirectories.size());
+        // katla::printInfo("found duplicate dirs: {}", toplevelDirectories.size());
 
-        return toplevelDirectories;
+        // return toplevelDirectories;
     }
 
     void FileGroupSet::hashDir(FileSystemEntry& currentEntry)

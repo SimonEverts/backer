@@ -34,12 +34,12 @@ class FileTree {
 public:
     FileTree();
 
-    static std::unique_ptr<FileSystemEntry> create(std::string path);
+    static std::shared_ptr<FileSystemEntry> create(std::string path);
 
     static std::vector<std::shared_ptr<backer::FileSystemEntry>> flatten(const std::shared_ptr<FileSystemEntry>& entry);
 
-    static std::unique_ptr<backer::FileSystemEntry> fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath);
-    static std::unique_ptr<backer::FileSystemEntry> fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath);
+    static std::unique_ptr<backer::FileSystemEntry> fileSystemEntryFromFile(const std::filesystem::directory_entry& entry, std::string basePath, std::optional<std::weak_ptr<FileSystemEntry>> parent);
+    static std::shared_ptr<backer::FileSystemEntry> fileSystemEntryFromDir(const std::filesystem::directory_entry& entry, std::string basePath, std::optional<std::weak_ptr<FileSystemEntry>> parent);
 
     static void recursiveHash(FileSystemEntry& entry);
 
