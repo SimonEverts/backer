@@ -8,8 +8,8 @@ option(USE_SYSTEM_LIBWEBSOCKETS "use system libwebsockets" OFF) # using included
 option(USE_SYSTEM_LIBUV "use system libuv" OFF)
 
 IF(USE_SYSTEM_GSL)
-    find_package(GSL REQUIRED)
-    add_library(Microsoft.GSL::GSL ALIAS GSL::gsl)
+    find_package(Microsoft.GSL REQUIRED)
+    # add_library(Microsoft.GSL::GSL ALIAS GSL::gsl)
 ELSE()
     add_subdirectory(external/gsl)
     include_directories(external/gsl/include)

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef FILE_GROUP_SET_H
-#define FILE_GROUP_SET_H
+#ifndef DIR_GROUP_SET_H
+#define DIR_GROUP_SET_H
 
 #include "katla/core/core.h"
 
@@ -30,13 +30,15 @@
 
 namespace backer {
 
-class FileGroupSet : public BaseGroupSet {
+class DirGroupSet : public BaseGroupSet {
 public:
-    FileGroupSet();
+    DirGroupSet();
 
-    static FileGroupSet createFromPath(std::string path);
+    static DirGroupSet createFromPath(std::string path, bool onlyTopDirs);
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateDirs(std::string path, bool onlyTopDirs);
 
-    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateFiles(std::string path);
+private:
+    void removeDuplicateEntriesWithDuplicateParent(std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& groupedDirectories);
 };
 
 } // namespace backer

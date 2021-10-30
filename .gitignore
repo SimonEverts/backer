@@ -5,3 +5,7 @@ build/
 cmake-build-debug/
 .idea/
 .cache/
+cmake/
+CMakeFiles/
+CMakeCache.txt
+file-index.db.sqlite

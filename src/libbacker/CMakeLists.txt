@@ -13,6 +13,10 @@ SET (LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(sources
     backer.cpp
     backer.h
+    base-group-set.cpp
+    base-group-set.h
+    dir-group-set.cpp
+    dir-group-set.h
     file-group-set.cpp
     file-group-set.h
     file-index-database.cpp

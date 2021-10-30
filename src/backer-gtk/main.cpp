@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
     gtkApplication.onActivate([&fileMap, &keys, &window, &listview, &genListEntry, &fileGroupSet, &duplicateListView]() {
         window->show();
 
-        fileGroupSet = backer::FileGroupSet::createForFiles("."); // /mnt/exthdd/primary
+        fileGroupSet = backer::FileGroupSet::createFromPath("."); // /mnt/exthdd/primary
         fileMap = fileGroupSet.fileMap();
 
         for (auto& pair : fileMap) {

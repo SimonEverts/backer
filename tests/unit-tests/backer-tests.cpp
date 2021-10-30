@@ -48,7 +48,7 @@ namespace backer {
     }
 
     TEST(BackerTests, GroupPotentialDuplicateFileTest) {
-        auto fileGroupSet = FileGroupSet::createForFiles((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/group-potential-duplicate-files")));
+        auto fileGroupSet = FileGroupSet::createFromPath((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/group-potential-duplicate-files")));
         auto fileMap = fileGroupSet.fileMap();
 
         // for(auto& it : fileMap) {
@@ -62,7 +62,7 @@ namespace backer {
     }
 
     TEST(BackerTests, GroupPotentialDuplicateDirTest) {
-        auto fileGroupSet = FileGroupSet::createForDirs((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/group-potential-duplicate-dirs")), false);
+        auto fileGroupSet = DirGroupSet::createFromPath((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/group-potential-duplicate-dirs")), false);
         auto fileMap = fileGroupSet.fileMap();
 
         // for(auto& it : fileMap) {
@@ -89,7 +89,7 @@ namespace backer {
     }
 
     TEST(BackerTests, GroupDuplicateTopDirTest) {
-        auto fileGroupSet = FileGroupSet::createForDirs((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/duplicate-top-dirs")), true);
+        auto fileGroupSet = DirGroupSet::createFromPath((katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/duplicate-top-dirs")), true);
         auto fileMap = fileGroupSet.fileMap();
 
         // for(auto& it : fileMap) {

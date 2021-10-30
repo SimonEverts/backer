@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
                 }
             }
 
-            fileGroupSet = backer::FileGroupSet::createForFiles(".");
+            fileGroupSet = backer::FileGroupSet::createFromPath(".");
             auto fileMap = fileGroupSet.fileMap();
             for (auto &pair : fileMap) {
                 for (auto &file : pair.second) {

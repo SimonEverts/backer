@@ -14,29 +14,31 @@
  * limitations under the License.
  */
 
-#ifndef FILE_GROUP_SET_H
-#define FILE_GROUP_SET_H
+#ifndef BASE_GROUP_SET_H
+#define BASE_GROUP_SET_H
 
-#include "katla/core/core.h"
-
-#include "base-group-set.h"
 #include "file-data.h"
+#include "katla/core/core.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace backer {
 
-class FileGroupSet : public BaseGroupSet {
-public:
-    FileGroupSet();
+class BaseGroupSet {
+  public:
+    BaseGroupSet();
 
-    static FileGroupSet createFromPath(std::string path);
+    long count(const std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& fileMap);
+    void hashDir(FileSystemEntry& entry);
 
-    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateFiles(std::string path);
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> fileMap() { return m_fileMap; }
+
+  protected:
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> m_fileMap;
 };
 
 } // namespace backer

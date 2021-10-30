@@ -20,6 +20,7 @@
 #include "katla/core/core.h"
 
 #include "file-group-set.h"
+#include "dir-group-set.h"
 
 #include <cstddef>
 #include <cstdint>
