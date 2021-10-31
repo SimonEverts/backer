@@ -181,11 +181,18 @@ namespace backer {
 
         std::vector<std::vector<std::byte>> dirHashes;
         if (entry.children.has_value()) {
-            for(auto& childEntry : entry.children.value()) {
-                recursiveHash(*childEntry);
 
-                if (childEntry->hash.has_value() && childEntry->hash.value().size()) {
-                    dirHashes.push_back(childEntry->hash.value());
+            // order of children is important, must be sorted
+            std::map<std::string, std::shared_ptr<FileSystemEntry>> sortedChildren;
+            for(auto& childEntry : entry.children.value()) {
+                sortedChildren[childEntry->relativePath] = childEntry;
+            }
+
+            for(auto& childEntry : sortedChildren) {
+                recursiveHash(*childEntry.second);
+
+                if (childEntry.second->hash.has_value() && childEntry.second->hash.value().size()) {
+                    dirHashes.push_back(childEntry.second->hash.value());
                 }
             }
         }
