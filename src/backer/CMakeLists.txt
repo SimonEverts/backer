@@ -7,9 +7,6 @@ set(target_name backer)
 
 set(CMAKE_CXX_STANDARD 17)
 
-SET (EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-SET (LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-
 set(sources
     main.cpp
 )

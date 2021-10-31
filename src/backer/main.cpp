@@ -118,6 +118,91 @@ int main(int argc, char* argv[])
             }
         }
 
+        if (command == "compare-file-index") {
+            try {
+                std::string path1 = ".";
+                std::string path2 = ".";
+                if (optionsResult.count("args") >= 2) {
+                    auto arguments = optionsResult["args"].as<std::vector<std::string>>();
+                    if (arguments.size()) {
+                        path1 = arguments[0];
+                        path2 = arguments[1];
+                    }
+                }
+
+                auto fileIndexPath1 = katla::format("{}/file-index.db.sqlite", path1);
+                auto fileIndexPath2 = katla::format("{}/file-index.db.sqlite", path2);
+
+                auto fileIndex1 = backer::FileIndexDatabase::open(fileIndexPath1);
+                auto fileList1 = fileIndex1.getFileIndex();
+
+                // create maps based on relative path
+                std::map<std::string, backer::FileSystemEntry> fileMap1;
+                for(auto& it : fileList1) {
+                    fileMap1[it.relativePath] = it;
+                }
+
+                auto fileIndex2 = backer::FileIndexDatabase::open(fileIndexPath2);
+                auto fileList2 = fileIndex2.getFileIndex();
+
+                std::map<std::string, backer::FileSystemEntry> fileMap2;
+                for(auto& it : fileList2) {
+                    fileMap2[it.relativePath] = it;
+                }
+
+                // compare files using relative-path
+                std::vector<backer::FileSystemEntry> onlyIn1;
+                std::vector<std::pair<backer::FileSystemEntry, backer::FileSystemEntry>> diff;
+
+                for (auto &it : fileMap1) {
+                    auto findIt = fileMap2.find(it.first);
+                    if (findIt == fileMap2.end()) {
+                        onlyIn1.push_back(it.second);
+                        continue;
+                    }
+
+                    if (backer::Backer::formatHash(it.second.hash.value()) != backer::Backer::formatHash(findIt->second.hash.value()) ) {
+
+                        // TODO tmp
+                        if(it.second.type != backer::FileSystemEntryType::Dir) {
+                            diff.push_back({it.second, findIt->second});
+                            katla::printInfo("- {} {} {} {} {} {}", it.second.relativePath, findIt->second.relativePath, it.second.size, findIt->second.size, backer::Backer::formatHash(it.second.hash.value()), backer::Backer::formatHash(findIt->second.hash.value()));
+                        }
+
+                        // for(auto& fileIt : )
+                    }
+                }
+
+                std::vector<backer::FileSystemEntry> onlyIn2;
+                for (auto &it : fileMap2) {
+                    auto findIt = fileMap1.find(it.first);
+                    if (findIt == fileMap1.end()) {
+                        onlyIn2.push_back(it.second);
+                        continue;
+                    }
+                }
+
+                katla::printInfo("Different:");
+                for (auto& it : diff) {
+                    katla::printInfo("  {}", it.first.relativePath);
+                }
+
+                katla::printInfo("\nOnly in 1:");
+                for (auto& it : onlyIn1) {
+                    katla::printInfo("  {}", it.relativePath);
+                }
+
+                katla::printInfo("\nOnly in 2:");
+                for (auto& it : onlyIn2) {
+                    katla::printInfo("  {}", it.relativePath);
+                }
+
+            } catch (std::runtime_error ex) {
+                katla::printError(ex.what());
+            }
+        }
+
+
         if (command == "find-duplicate-dirs-from-index") {
             try {
                 std::string path = ".";
@@ -145,14 +230,29 @@ int main(int argc, char* argv[])
                 auto dirGroup = backer::DirGroupSet::createFromFlattenedList(flatList, true);
                 auto dupList = dirGroup.fileMap();
 
-                katla::printInfo("Duplicates:");
+                std::map<long long, std::vector<std::vector<std::shared_ptr<backer::FileSystemEntry>>>> sortedDupGroup;
+
                 for(auto& groupIt : dupList) {
                     if(groupIt.second.size() < 2) {
                         continue;
                     }
-                    katla::printInfo("-");
-                    for(auto& entryIt : groupIt.second) {
-                        katla::printInfo("  {:<20} {}", entryIt->hash.has_value() ? backer::Backer::formatHash(entryIt->hash.value()) : "", entryIt->relativePath);
+                    auto size = groupIt.second.front()->size;
+                    
+                    auto findIt = sortedDupGroup.find(size);
+                    if (findIt == sortedDupGroup.end()) {
+                        sortedDupGroup[size] = {};
+                    }
+
+                    sortedDupGroup[size].push_back(groupIt.second);
+                }
+
+                katla::printInfo("Duplicates:");
+                for(auto& sizeIt : sortedDupGroup) {
+                    for(auto& groupIt : sizeIt.second) {
+                        katla::printInfo("-");
+                        for(auto& entryIt : groupIt) {
+                            katla::printInfo("  {:<20} {} {:<20}", katla::humanFileSize(entryIt->size), entryIt->relativePath, entryIt->hash.has_value() ? backer::Backer::formatHash(entryIt->hash.value()) : "");
+                        }
                     }
                 }
 
@@ -200,13 +300,6 @@ int main(int argc, char* argv[])
         //         }
         //     });
 
-
-        if (argc == 3) {
-            //        katla::print(stdout, "Comparing src {} to dest {}\n", argv[1], argv[2]);
-            //
-            //        fileMap = backer::Backer::groupPotentialDuplicateFile(argv[1]);
-            //        backer::Backer::walkFiles(argv[2], fileMap, false, true);
-        }
 
         backer::CountResult result{};
         //    result.nrOfFiles = fileGroupSet.countFiles();
