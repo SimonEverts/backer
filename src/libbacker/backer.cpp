@@ -83,41 +83,6 @@ namespace backer {
         return result;
     }
 
-    // void Backer::walkFiles(std::string path,
-    //                        std::map<std::string, std::vector<FileSystemEntry>> &fileMap,
-    //                        bool addNewFiles) {
-    //     fs::recursive_directory_iterator dirIter(path);
-    //     for (auto &entry : dirIter) {
-    //         if (entry.is_symlink() || entry.is_other()) {
-    //             continue;
-    //         }
-
-    //         if (entry.is_regular_file()) {
-    //             FileSystemEntry fileData{};
-    //             fileData.name = entry.path().filename().string();
-    //             fileData.relativePath = entry.path().string();
-
-    //             auto absolutePathResult = katla::PosixFile::absolutePath(entry.path().string());
-    //             if (!absolutePathResult) {
-    //                 throw std::runtime_error(absolutePathResult.error().message());
-    //             }
-
-    //             fileData.absolutePath = absolutePathResult.value();
-
-    //             fileData.size = entry.file_size();
-
-    //             std::string key = katla::format("{}-{}", fileData.name, fileData.size);
-
-    //             auto findIt = fileMap.find(key);
-    //             if (findIt != fileMap.end()) {
-    //                 findIt->second.push_back(fileData);
-    //             } else if (addNewFiles) {
-    //                 fileMap[key] = std::vector<FileSystemEntry>{fileData};
-    //             }
-    //         }
-    //     }
-    // }
-
     std::string Backer::formatHash(const std::vector<std::byte> &hash) {
         std::stringstream ss;
 

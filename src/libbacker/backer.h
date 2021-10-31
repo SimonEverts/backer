@@ -40,12 +40,6 @@ struct CountResult
 
 class Backer {
   public:
-    // static void walkFiles(std::string path,
-    //                std::map<std::string, std::vector<FileSystemEntry>>& fileMap,
-    //                bool addNewFiles = true);
-
-
-
     static std::vector<std::byte> sha256(std::string path);
     static std::vector<std::byte> sha256(std::vector<std::vector<std::byte>> hashes);
     static std::vector<std::byte> sha256FromString(std::string str);

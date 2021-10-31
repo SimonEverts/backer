@@ -19,7 +19,7 @@
 
 #include "katla/core/core.h"
 
-#include "base-group-set.h"
+#include "file-group-set.h"
 #include "file-data.h"
 
 #include <cstddef>
@@ -30,17 +30,20 @@
 
 namespace backer {
 
-class DirGroupSet : public BaseGroupSet {
+class DirGroupSet : public FileGroupSet {
 public:
     DirGroupSet();
 
     static DirGroupSet createFromPath(std::string path, bool onlyTopDirs);
-    static DirGroupSet createFromFlattenedList(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs);
+    static DirGroupSet createFromFlattenedList(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs);  
 
+    std::vector<std::pair<std::shared_ptr<FileSystemEntry>, std::shared_ptr<FileSystemEntry>>>
+    filterSubsetDirs(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs);
+
+private:
     std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>
     listAndGroupDuplicateDirs(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs);
 
-private:
     void removeDuplicateEntriesWithDuplicateParent(std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>& groupedDirectories);
 };
 
