@@ -1,11 +1,13 @@
 #include "dir-group-set.h"
 
 #include "core/core.h"
+#include "file-data.h"
 #include "katla/core/posix-file.h"
 
 #include "backer.h"
 #include "file-tree.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <openssl/md5.h>
@@ -17,7 +19,7 @@ namespace backer {
     DirGroupSet DirGroupSet::createFromPath(std::string path, bool onlyTopDirs) {
         
         katla::printInfo("Indexing files");
-        auto rootEntry = std::shared_ptr<FileSystemEntry>(FileTree::create(path));
+        auto rootEntry = FileTree::create(path);
 
         katla::printInfo("Flatten file list");
         auto flatList = FileTree::flatten(rootEntry);
@@ -33,68 +35,144 @@ namespace backer {
         return result;
     }
 
-    std::vector<std::pair<std::shared_ptr<FileSystemEntry>, std::shared_ptr<FileSystemEntry>>>
+    std::vector<std::pair<std::weak_ptr<FileSystemEntry>, std::weak_ptr<FileSystemEntry>>>
     DirGroupSet::filterSubsetDirs(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs)
     {
         // hashes duplicate files
         auto groupDuplicateFiles = listAndGroupDuplicateFiles(flattenedList);
 
+        // for(auto& groupIt : groupDuplicateFiles) {
+        //     if (groupIt.second.size() > 1) {
+        //         katla::printInfo("Found {} duplicates:", groupIt.second.size());
+        //         for(auto& dirIt : groupIt.second) {
+        //             katla::printInfo("- {} {}", dirIt->absolutePath, groupIt.first);
+        //         }
+        //     }
+        // }
+
+        int total = groupDuplicateFiles.size();
+        int c = 0;
 
         // get all parents from duplicate files as candidate dirs
-        for(auto dp)
-
-        //
-        std::vector<std::pair<std::shared_ptr<FileSystemEntry>, std::shared_ptr<FileSystemEntry>>> resultList;
-        for(auto& it : flattenedList) {
-            if (it->type == FileSystemEntryType::File) {
+        std::vector<std::pair<std::weak_ptr<FileSystemEntry>, std::weak_ptr<FileSystemEntry>>> resultList;
+        for(const auto& groupIt : groupDuplicateFiles) {
+            if (groupIt.second.size() <= 1) {
                 continue;
             }
 
-            auto groupIt = groupDuplicateFiles.find(backer::Backer::formatHash(it->hash.value()));
-            if (groupIt == groupDuplicateFiles.end()) {
-                continue;
-            }
+            katla::print(stdout, "Pressing duplicate {}/{} - {:.2f}% \r", c, total, float(c*100.0)/total);
+            c++;
 
-
-            auto flatListA = FileTree::flatten(it);
-            auto relPathA = it->parent.value().lock()->relativePath;
-
-            for(auto& dupIt : groupIt->second) {
-                auto flatListB = FileTree::flatten(dupIt);
-
-                std::map<std::string, std::shared_ptr<FileSystemEntry>> flatMapB;
-                for(auto& itListB : flatListB) {
-                    flatMapB[itListB->relativePath] = itListB;
+            std::map<std::string, std::weak_ptr<FileSystemEntry>> parents;
+            for(const auto& dup : groupIt.second) {
+                if (dup->type == FileSystemEntryType::Dir) {
+                    continue;
                 }
 
-                auto relPathB = dupIt->parent->lock()->relativePath;
+                if (!dup->parent.has_value()) {
+                    continue;
+                }
+                auto parent = dup->parent.value();
+                parents[parent.lock()->relativePath] = parent;
+            }
 
-                bool allAinB = true;
-                // check if pathB contains everything from pathA
-                for(auto& itA : flatListA) {
-                    auto trimmedPathA = katla::trimPrefix(itA->relativePath, relPathA);
-                    katla::printInfo("trimA: {} {} {}", itA->relativePath, relPathA, trimmedPathA);
-                    bool itAinB = false;
-                    for(auto& itB : flatMapB) {
-                        auto trimmedPathB = katla::trimPrefix(itB.second->relativePath, relPathB);
-                        katla::printInfo("trimB: {} {} {}", itB.second->relativePath, relPathB, trimmedPathB);
+            // for (auto& it : parents) {
+            //     katla::printInfo("parent: {} {}", it.first, it.second.lock()->absolutePath);
+            // }
 
-                        if (trimmedPathA == trimmedPathB &&
-                                backer::Backer::formatHash(itA->hash.value()) == backer::Backer::formatHash(itB.second->hash.value())) {
-                            itAinB = true;
+            // TODO: include parents of parents?
+
+            for(auto& parentItA : parents) {
+                auto parentEntryA = parentItA.second.lock();
+                if (parentEntryA->type == FileSystemEntryType::File) {
+                    continue;
+                }
+
+                // TODO set minimum dir size for now to improve speed
+                if (parentEntryA->size < 1024*1024*1024) {
+                    continue;
+                }
+
+                // get list of all A's parents, so we can exclude them later
+                std::vector<std::string> parentsOfA;
+                std::optional<std::weak_ptr<FileSystemEntry>> parentIt = parentEntryA->parent;
+                while(parentIt.has_value()) {
+                    auto entry = parentIt.value().lock();
+                    parentsOfA.push_back(entry->relativePath);
+                    parentIt = entry->parent;
+                }
+
+                // katla::printInfo("parents of {}: {}", parentEntryA->relativePath, parentsOfA.size());
+                // for(auto& it : parentsOfA) {
+                //     katla::printInfo(" - {}", it);
+                // }
+
+                auto flatListA = FileTree::flatten(parentEntryA);
+
+                // TODO set minimum dir size for now to improve speed
+                if (flatListA.size() < 100) {
+                    continue;
+                }
+
+                for(auto& parentItB : parents) {
+                    if (parentItB.first == parentItA.first) {
+                        continue;
+                    }
+                    
+                    auto parentEntryB = parentItB.second.lock();
+
+                    // skip if parentItB is parent of parentItA
+                    auto findIt = std::find(parentsOfA.begin(), parentsOfA.end(), parentEntryB->relativePath);
+                    if (findIt != parentsOfA.end()) {
+                        continue;
+                    }
+
+                    auto flatListB = FileTree::flatten(parentEntryB);
+
+                    std::map<std::string, std::shared_ptr<FileSystemEntry>> flatMapB;
+                    for(auto& itListB : flatListB) {
+                        flatMapB[itListB->relativePath] = itListB;
+                    }
+
+                    bool allAinB = true;
+                    // check if pathB contains everything from pathA
+                    for(auto& itA : flatListA) {
+                        if (itA->type == FileSystemEntryType::Dir) {
+                            continue;
+                        }
+
+                        auto trimmedPathA = katla::trimPrefix(itA->relativePath, parentEntryA->relativePath);
+                        // katla::printInfo("trimA: {} {} {}", itA->relativePath, parentEntryA->relativePath, trimmedPathA);
+                        bool itAinB = false;
+                        for(auto& itB : flatMapB) {
+                            if(itB.second->type == FileSystemEntryType::Dir) {
+                                continue;
+                            }
+
+                            auto trimmedPathB = katla::trimPrefix(itB.second->relativePath, parentEntryB->relativePath);
+                            // katla::printInfo("trimB: {} {} {}", itB.second->relativePath, parentEntryB->relativePath, trimmedPathB);
+
+                            if (trimmedPathA == trimmedPathB &&
+                                    backer::Backer::formatHash(itA->hash.value()) == backer::Backer::formatHash(itB.second->hash.value())) {
+                                itAinB = true;
+                            }
+                        }
+
+                        if (!itAinB) {
+                            allAinB = false;
                         }
                     }
 
-                    if (!itAinB) {
-                        allAinB = false;
+                    if(allAinB) {
+                        resultList.push_back({parentItA.second, parentItB.second});
                     }
                 }
-
-                if(allAinB) {
-                    resultList.push_back({it, dupIt});
-                }
             }
+
         }
+
+        //
+        return resultList;
     }
 
     std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>

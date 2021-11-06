@@ -37,7 +37,7 @@ public:
     static DirGroupSet createFromPath(std::string path, bool onlyTopDirs);
     static DirGroupSet createFromFlattenedList(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs);  
 
-    std::vector<std::pair<std::shared_ptr<FileSystemEntry>, std::shared_ptr<FileSystemEntry>>>
+    std::vector<std::pair<std::weak_ptr<FileSystemEntry>, std::weak_ptr<FileSystemEntry>>>
     filterSubsetDirs(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs);
 
 private:

@@ -20,6 +20,7 @@
 
 #include "katla/core/core.h"
 #include "libbacker/backer.h"
+#include "libbacker/file-tree.h"
 
 #include <variant>
 
@@ -31,6 +32,8 @@ namespace backer {
 - group potential dir test
 - only toplevel dir test
 - toplevel with only duplicates
+- subset dir
+- top subset dir
 - hash collision
 */
     TEST(BackerTests, DuplicateFileTest) {
@@ -68,14 +71,14 @@ namespace backer {
         // for(auto& it : fileMap) {
         //     katla::printInfo("{}-{}", it.first, it.second.size());
         //     for(auto& x : it.second) {
-        //         katla::printInfo(" - {}-{}", x->relativePath, backer::Backer::formatHash(x->hash));
+        //         katla::printInfo(" - {}-{}", x->relativePath, backer::Backer::formatHash(x->hash.value()));
         //     }
         // }
 
         ASSERT_TRUE(fileMap.size() == 5) << "Expected 5 groups";
 
         // current
-        ASSERT_TRUE(fileMap["dir-185540A8DE5EF4FB76620041E31A8B16823D40057B804DBFBA038E7DD611D759"].size() == 1);
+        ASSERT_TRUE(fileMap["dir-7B039AD4BBC526D5028A8A4B0574B1E3AC18208C36998A4145B397BC3CD3A466"].size() == 1);
 
         // diff 1 & 2
         ASSERT_TRUE(fileMap["dir-027D4AECC67114E5C298B36A445C1EE0DB0C9807B3223807A30E55A6172AA9B4"].size() == 1);
@@ -95,18 +98,50 @@ namespace backer {
         // for(auto& it : fileMap) {
         //     katla::printInfo("{}-{}", it.first, it.second.size());
         //     for(auto& x : it.second) {
-        //         katla::printInfo(" - {}-{}", x->relativePath, backer::Backer::formatHash(x->hash));
+        //         katla::printInfo(" - {}-{}", x->relativePath, backer::Backer::formatHash(x->hash.value()));
         //     }
         // }
 
         ASSERT_TRUE(fileMap.size() == 7) << katla::format("Expected 7 groups instead of {}", fileMap.size());
 
         for(auto& it : fileMap) {
-            if (it.first == "dir-90C2D380A501D3866D83DD8AA6E0BD6046E3A9E745E757B34EE1D762E0C1E611") {
+            if (it.first == "dir-DC9AA83DDDF9368E758275ECFCC6839DD5AB0DC8471F14360CAF89FA542F3827") {
                 ASSERT_TRUE(it.second.size() == 2) << katla::format("Duplicate dir not found!");
             } else {
                 ASSERT_TRUE(it.second.size() == 1) << katla::format("Found false positive duplicates!");
             }
+        }
+    }
+
+    TEST(BackerTests, FilterSubsetDirTest) {
+        auto path = katla::format("{}/{}", CMAKE_SOURCE_DIR, "tests/test-sets/subset-dirs");
+
+        katla::printInfo("Indexing files");
+        auto rootEntry = FileTree::create(path);
+        auto flatList = FileTree::flatten(rootEntry);
+        
+        auto dirGroupSet = DirGroupSet();
+        auto pairs = dirGroupSet.filterSubsetDirs(flatList, false);
+
+        for(auto& it : pairs) {
+            katla::printInfo("{} <-> {}", it.first.lock()->relativePath, it.second.lock()->relativePath);
+        }
+
+        ASSERT_TRUE(pairs.size() == 3) << katla::format("Expected 3 groups instead of {}", pairs.size());
+
+        for(auto& it : pairs) {
+            if ((it.first.lock()->relativePath == "dup2" && it.second.lock()->relativePath == "dup1")
+                || (it.first.lock()->relativePath == "dup2/dup-sub" && it.second.lock()->relativePath == "dup1")
+                || (it.first.lock()->relativePath == "dup2/dup-sub" && it.second.lock()->relativePath == "dup1/dup-sub")) {
+                continue;
+            } else {
+                FAIL() << katla::format("match not found {} -> {}", it.first.lock()->relativePath, it.second.lock()->relativePath);
+            }
+            // if (it.first.lock()->relativePath == "dir-90C2D380A501D3866D83DD8AA6E0BD6046E3A9E745E757B34EE1D762E0C1E611") {
+            //     ASSERT_TRUE(it.second.size() == 2) << katla::format("Duplicate dir not found!");
+            // } else {
+            //     ASSERT_TRUE(it.second.size() == 1) << katla::format("Found false positive duplicates!");
+            // }
         }
     }
 

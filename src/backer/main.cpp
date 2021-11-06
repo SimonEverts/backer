@@ -273,110 +273,46 @@ int main(int argc, char* argv[])
             }
         }
 
-        // fileGroupSet = backer::FileGroupSet::create("."); // /mnt/exthdd/primary
-        // fileMap = fileGroupSet.fileMap();
+        if (command == "find-duplicates-from-index") {
+            try {
+                std::string path = ".";
+                if (optionsResult.count("args")) {
+                    auto arguments = optionsResult["args"].as<std::vector<std::string>>();
+                    if (arguments.size()) {
+                        path = arguments.front();
+                    }
+                }
+                if (optionsResult.count("source")) {
+                    path = optionsResult["source"].as<std::string>();
+                }
 
-        // for (auto& pair : fileMap) {
-        //     if (pair.second.size() < 2) {
-        //         continue;
-        //     }
+                auto fileIndexPath = katla::format("{}/file-index.db.sqlite", path);
 
-        //     auto front = pair.second.front();
-        //     if (front->type != backer::FileSystemEntryType::Dir) {
-        //         continue;
-        //     }
+                auto fileIndex = backer::FileIndexDatabase::open(fileIndexPath);
+                auto fileList = fileIndex.getFileIndex();
 
-        //     keys.push_back(pair.first);
-        //         listview->addWidget(genListEntry(*pair.second.front()));
-        // }
-        // }
+                auto fileTree = backer::FileTree::create(path);
+                backer::FileTree::fillDataFromIndex(*fileTree, fileList);
+                backer::FileTree::recursiveHash(*fileTree);
 
-        //     listview->onRowSelected([&fileMap, &keys, &duplicateListView, &genListEntry](int index) {
-        //         katla::printInfo("Row selected {}", index);
+                auto flatList = backer::FileTree::flatten(fileTree);
+            
+                auto dirGroupSet = backer::DirGroupSet();
+                auto pairs = dirGroupSet.filterSubsetDirs(flatList, false);
 
-        //         duplicateListView->clear();
-        //         for (auto& file : fileMap[keys[index]]) {
-        //             duplicateListView->addWidget(genListEntry(*file));
-        //         }
-        //     });
+                std::sort(pairs.begin(), pairs.end(), [](const auto& a, const auto& b) {
+                    return (a.first.lock()->size < b.first.lock()->size);
+                });
 
+                for(auto it = pairs.begin(); it != pairs.end(); it++) {
+                    katla::printInfo("{} -> {} -] {}", it->first.lock()->relativePath, it->second.lock()->relativePath, katla::humanFileSize(it->first.lock()->size));
+                }
 
-        backer::CountResult result{};
-        //    result.nrOfFiles = fileGroupSet.countFiles();
+            } catch (std::runtime_error ex) {
+                katla::printError(ex.what());
+            }
+        }
 
-        //    auto fileMap = fileGroupSet.fileMap();
-        //
-        //
-        //    // Calculate md5 hashes of files in a group
-        //    // - Use that md5 in the key to create an unique group
-        //    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> uniqueGroup;
-        //    int fileNr = 0;
-        //    for (auto& pair : fileMap) {
-        //        auto&& fileGroup = pair.second;
-        //
-        //        for (auto& file : fileGroup) {
-        //            katla::print(stdout, "[{}/{}] {}\n", fileNr, result.nrOfFiles, file->absolutePath);
-        //            fileNr++;
-        //
-        //            if (fileGroup.size() < 2) {
-        //                uniqueGroup[pair.first] = fileGroup;
-        //                continue;
-        //            }
-        //
-        //            file->hash = backer::Backer::sha256(file->absolutePath);
-        //            std::string newKey = katla::format("{}-{}", pair.first, backer::Backer::formatHash(file->hash));
-        //            if (uniqueGroup.find(newKey) == uniqueGroup.end()) {
-        //                uniqueGroup[newKey] = {};
-        //            }
-        //            uniqueGroup[newKey].push_back(file);
-        //        }
-        //    }
-        //
-        //    std::map<std::string, backer::FileSystemEntry> onlyAtSrc;
-        //
-        //
-        //    for (auto& pair : uniqueGroup) {
-        //        auto&& fileGroup = pair.second;
-        //
-        //        bool noDest = true;
-        //        for (auto& file : fileGroup) {
-        //            if (file->isInDest) {
-        //                noDest = false;
-        //            }
-        //        }
-        //
-        //        if (noDest) {
-        //            for (auto& file : fileGroup) {
-        //                onlyAtSrc[file.absolutePath] = file;
-        //            }
-        //        } else {
-        //            for (auto it = fileGroup.begin(); it != fileGroup.end(); it++) {
-        //                result.atBoth++;
-        //            }
-        //        }
-        //    }
-        //
-        //    for (auto& pair : uniqueGroup) {
-        //        auto fileGroup = pair.second;
-        //
-        //        for(auto& file : fileGroup) {
-        //            if (fileGroup.size() > 2) {
-        //                result.duplicates++;
-        //                katla::print(stdout, "Duplicates: {}-{}\n", backer::Backer::formatHash(file.hash), file.absolutePath);
-        //            }
-        //        }
-        //    }
-        //
-        //    backer::Backer::writeToFile("only-at-src.txt", onlyAtSrc);
-        //
-        //    for (auto& pair : onlyAtSrc) {
-        //        katla::print(stdout, "Only at src: {}\n", pair.first);
-        //    }
-        //
-        //    katla::print(stdout, "Nr of files: {}\n", result.nrOfFiles);
-        //    katla::print(stdout, "Nr of files only at src: {}\n", onlyAtSrc.size());
-        //    katla::print(stdout, "Nr of files at both: {}\n", result.atBoth);
-        //    katla::print(stdout, "Nr of files have duplicates: {}\n", result.duplicates);
     } catch (const std::runtime_error& ex) {
         katla::printError("Exception caught: {}", ex.what());
     }
