@@ -82,7 +82,6 @@ namespace backer {
         dirData->type = backer::FileSystemEntryType::Dir;
         dirData->name = entry.path().filename().string();
         dirData->relativePath = fs::relative(entry.path(), basePath).string();
-        katla::printInfo("{}, {}", dirData->relativePath, dirData->type);
 
         auto absolutePathResult = katla::PosixFile::absolutePath(entry.path().string());
         if (!absolutePathResult) {

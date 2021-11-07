@@ -1,7 +1,9 @@
 #include "katla/core/core.h"
 #include "katla/core/posix-file.h"
+#include "katla/core/string-utils.h"
 
 #include "libbacker/backer.h"
+#include "libbacker/file-data.h"
 #include "libbacker/file-tree.h"
 #include "libbacker/file-group-set.h"
 #include "libbacker/file-index-database.h"
@@ -216,6 +218,11 @@ int main(int argc, char* argv[])
                     path = optionsResult["source"].as<std::string>();
                 }
 
+                std::optional<std::string> outPath;
+                if (optionsResult.count("output")) {
+                    outPath = optionsResult["output"].as<std::string>();
+                }
+
                 auto fileIndexPath = katla::format("{}/file-index.db.sqlite", path);
 
                 auto fileIndex = backer::FileIndexDatabase::open(fileIndexPath);
@@ -246,14 +253,18 @@ int main(int argc, char* argv[])
                     sortedDupGroup[size].push_back(groupIt.second);
                 }
 
-                katla::printInfo("Duplicates:");
-                for(auto& sizeIt : sortedDupGroup) {
-                    for(auto& groupIt : sizeIt.second) {
-                        katla::printInfo("-");
-                        for(auto& entryIt : groupIt) {
-                            katla::printInfo("  {:<20} {} {:<20}", katla::humanFileSize(entryIt->size), entryIt->relativePath, entryIt->hash.has_value() ? backer::Backer::formatHash(entryIt->hash.value()) : "");
+                if (!outPath.has_value()) {
+                    katla::printInfo("Duplicates:");
+                    for(auto& sizeIt : sortedDupGroup) {
+                        for(auto& groupIt : sizeIt.second) {
+                            katla::printInfo("-");
+                            for(auto& entryIt : groupIt) {
+                                katla::printInfo("  {:<20} {} {:<20}", katla::string::humanFileSize(entryIt->size), entryIt->relativePath, entryIt->hash.has_value() ? backer::Backer::formatHash(entryIt->hash.value()) : "");
+                            }
                         }
                     }
+                } else {
+                    // outPath
                 }
 
                 // std::function<void(backer::FileSystemEntry&)> printRecursiveTree;
@@ -286,6 +297,11 @@ int main(int argc, char* argv[])
                     path = optionsResult["source"].as<std::string>();
                 }
 
+                std::optional<std::string> outPath;
+                if (optionsResult.count("output")) {
+                    outPath = optionsResult["output"].as<std::string>();
+                }
+
                 auto fileIndexPath = katla::format("{}/file-index.db.sqlite", path);
 
                 auto fileIndex = backer::FileIndexDatabase::open(fileIndexPath);
@@ -300,13 +316,47 @@ int main(int argc, char* argv[])
                 auto dirGroupSet = backer::DirGroupSet();
                 auto pairs = dirGroupSet.filterSubsetDirs(flatList, false);
 
-                std::sort(pairs.begin(), pairs.end(), [](const auto& a, const auto& b) {
-                    return (a.first.lock()->size < b.first.lock()->size);
+                std::map<std::string, std::pair<std::weak_ptr<backer::FileSystemEntry>, std::map<std::string, std::weak_ptr<backer::FileSystemEntry>>>> ordering;
+                for(auto& it : pairs) {
+                    auto relPathA = it.first.lock()->relativePath;
+                    auto findAIt = ordering.find(relPathA);
+                    if (findAIt == ordering.end()) {
+                        ordering[relPathA] = {it.first, {}};
+                    }
+
+                    auto relPathB = it.second.lock()->relativePath;
+                    ordering[relPathA].second[relPathB] = it.second;
+                }
+
+                std::vector<std::string> orderingKeys;
+                for(auto& it : ordering) {
+                    orderingKeys.push_back(it.first);
+                }
+
+                std::sort(orderingKeys.begin(), orderingKeys.end(), [&ordering](const auto& a, const auto& b) {
+                    const auto entryA = ordering[a].first.lock();
+                    const auto entryB = ordering[b].first.lock();
+                    return (entryA->size < entryB->size);
                 });
 
-                for(auto it = pairs.begin(); it != pairs.end(); it++) {
-                    katla::printInfo("{} -> {} -] {}", it->first.lock()->relativePath, it->second.lock()->relativePath, katla::humanFileSize(it->first.lock()->size));
+                std::vector<std::string> output;
+                for(auto it : orderingKeys) {
+                    auto entryA = ordering[it].first.lock();
+                    output.push_back(katla::format("[{}] {}:", katla::string::humanFileSize(entryA->size), entryA->relativePath));
+                    for(auto& itB : ordering[it].second) {
+                        output.push_back(katla::format(" - {}", itB.first));
+                    }
                 }
+
+                if (!outPath.has_value()) {
+                    for (auto& it : output) {
+                        katla::printInfo("{}", it);
+                    }
+                } else {
+                    backer::Backer::writeToFile(outPath.value(), output);
+                }
+
+                katla::printInfo("done!");
 
             } catch (std::runtime_error ex) {
                 katla::printError(ex.what());

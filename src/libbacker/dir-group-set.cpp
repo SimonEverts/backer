@@ -3,6 +3,7 @@
 #include "core/core.h"
 #include "file-data.h"
 #include "katla/core/posix-file.h"
+#include "katla/core/string-utils.h"
 
 #include "backer.h"
 #include "file-tree.h"
@@ -11,6 +12,7 @@
 #include <filesystem>
 #include <memory>
 #include <openssl/md5.h>
+#include <unistd.h>
 
 namespace backer {
 
@@ -39,36 +41,37 @@ namespace backer {
     DirGroupSet::filterSubsetDirs(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList, bool onlyTopDirs)
     {
         // hashes duplicate files
-        auto groupDuplicateFiles = listAndGroupDuplicateFiles(flattenedList);
+        auto groupDuplicates = listAndGroupDuplicates(flattenedList);
 
-        // for(auto& groupIt : groupDuplicateFiles) {
-        //     if (groupIt.second.size() > 1) {
-        //         katla::printInfo("Found {} duplicates:", groupIt.second.size());
-        //         for(auto& dirIt : groupIt.second) {
-        //             katla::printInfo("- {} {}", dirIt->absolutePath, groupIt.first);
-        //         }
-        //     }
-        // }
+        for(auto& groupIt : groupDuplicates) {
+            if (groupIt.second.size() > 1) {
+                katla::printInfo("Found {} duplicates:", groupIt.second.size());
+                for(auto& dirIt : groupIt.second) {
+                    katla::printInfo("- {} {}", dirIt->absolutePath, groupIt.first);
+                }
+            }
+        }
 
-        int total = groupDuplicateFiles.size();
+        int total = groupDuplicates.size();
         int c = 0;
+
+
+        bool isTerminal = isatty(fileno(stdin)) == 1;
 
         // get all parents from duplicate files as candidate dirs
         std::vector<std::pair<std::weak_ptr<FileSystemEntry>, std::weak_ptr<FileSystemEntry>>> resultList;
-        for(const auto& groupIt : groupDuplicateFiles) {
+        for(const auto& groupIt : groupDuplicates) {
             if (groupIt.second.size() <= 1) {
                 continue;
             }
 
-            katla::print(stdout, "Pressing duplicate {}/{} - {:.2f}% \r", c, total, float(c*100.0)/total);
+            if (isTerminal) {
+                katla::print(stdout, "Processing duplicate {}/{} - {:.2f}% \r", c, total, float(c*100.0)/total);
+            }
             c++;
 
             std::map<std::string, std::weak_ptr<FileSystemEntry>> parents;
             for(const auto& dup : groupIt.second) {
-                if (dup->type == FileSystemEntryType::Dir) {
-                    continue;
-                }
-
                 if (!dup->parent.has_value()) {
                     continue;
                 }
@@ -77,7 +80,7 @@ namespace backer {
             }
 
             // for (auto& it : parents) {
-            //     katla::printInfo("parent: {} {}", it.first, it.second.lock()->absolutePath);
+            //     katla::printInfo("parent: {} {} {}", groupIt.second[0]->relativePath, it.first, it.second.lock()->absolutePath);
             // }
 
             // TODO: include parents of parents?
@@ -88,10 +91,10 @@ namespace backer {
                     continue;
                 }
 
-                // TODO set minimum dir size for now to improve speed
-                if (parentEntryA->size < 1024*1024*1024) {
-                    continue;
-                }
+                // // TODO set minimum dir size for now to improve speed
+                // if (parentEntryA->size < 1024*1024*1024) {
+                //     continue;
+                // }
 
                 // get list of all A's parents, so we can exclude them later
                 std::vector<std::string> parentsOfA;
@@ -110,9 +113,9 @@ namespace backer {
                 auto flatListA = FileTree::flatten(parentEntryA);
 
                 // TODO set minimum dir size for now to improve speed
-                if (flatListA.size() < 100) {
-                    continue;
-                }
+                // if (flatListA.size() < 100) {
+                //     continue;
+                // }
 
                 for(auto& parentItB : parents) {
                     if (parentItB.first == parentItA.first) {
@@ -141,7 +144,7 @@ namespace backer {
                             continue;
                         }
 
-                        auto trimmedPathA = katla::trimPrefix(itA->relativePath, parentEntryA->relativePath);
+                        auto trimmedPathA = katla::string::trimPrefix(itA->relativePath, parentEntryA->relativePath);
                         // katla::printInfo("trimA: {} {} {}", itA->relativePath, parentEntryA->relativePath, trimmedPathA);
                         bool itAinB = false;
                         for(auto& itB : flatMapB) {
@@ -149,7 +152,7 @@ namespace backer {
                                 continue;
                             }
 
-                            auto trimmedPathB = katla::trimPrefix(itB.second->relativePath, parentEntryB->relativePath);
+                            auto trimmedPathB = katla::string::trimPrefix(itB.second->relativePath, parentEntryB->relativePath);
                             // katla::printInfo("trimB: {} {} {}", itB.second->relativePath, parentEntryB->relativePath, trimmedPathB);
 
                             if (trimmedPathA == trimmedPathB &&

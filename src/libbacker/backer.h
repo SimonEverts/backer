@@ -48,6 +48,7 @@ class Backer {
     static std::vector<std::byte> parseHashString(const std::string& hashString);
 
     static void writeToFile(std::string filePath, std::map<std::string, FileSystemEntry>& fileData);
+    static void writeToFile(std::string filePath, std::vector<std::string> output);
 };
 
 } // namespace backer

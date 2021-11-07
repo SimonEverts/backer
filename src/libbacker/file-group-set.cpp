@@ -60,7 +60,7 @@ namespace backer {
             auto &&fileGroup = pair.second;
 
             for (auto &file : fileGroup) {
-                katla::print(stdout, "Hash possible duplicates: [{}/{}] {}\n", fileNr, nrOfFiles, file->absolutePath);
+                // katla::print(stdout, "Hash possible duplicates: [{}/{}] {}\r", fileNr, nrOfFiles, file->absolutePath);
                 fileNr++;
 
                 if (file->name.empty()) {
@@ -96,6 +96,32 @@ namespace backer {
         }
 
         return groupDuplicateFiles;
+    }
+
+    // slow version (hash everything)
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>>
+    FileGroupSet::listAndGroupDuplicates(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList) {
+
+        katla::printInfo("Group entries based on name and size");
+        std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> hashGroup;
+        for (auto &entry : flattenedList) {
+
+            FileTree::recursiveHash(*entry);
+
+            if (!entry->hash.has_value()) {
+                continue;
+            }            
+            std::string key = backer::Backer::formatHash(entry->hash.value());
+
+            auto findIt = hashGroup.find(key);
+            if (findIt != hashGroup.end()) {
+                findIt->second.push_back(entry);
+            } else {
+                hashGroup[key] = std::vector<std::shared_ptr<FileSystemEntry>>{entry};
+            }
+        }
+
+        return hashGroup;
     }
 
 } // namespace backer

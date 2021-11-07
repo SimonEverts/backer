@@ -38,6 +38,7 @@ public:
     static FileGroupSet createFromFlattenedList(std::string path, bool onlyTopDirs);
 
     std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicateFiles(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList);
+    std::map<std::string, std::vector<std::shared_ptr<backer::FileSystemEntry>>> listAndGroupDuplicates(const std::vector<std::shared_ptr<backer::FileSystemEntry>>& flattenedList);
 };
 
 } // namespace backer

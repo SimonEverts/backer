@@ -130,4 +130,29 @@ namespace backer {
         }
     }
 
+    void Backer::writeToFile(std::string filePath, std::vector<std::string> output) {
+        katla::PosixFile file;
+        auto result = file.create(filePath,
+                                  katla::PosixFile::OpenFlags::Create | katla::PosixFile::OpenFlags::Truncate |
+                                  katla::PosixFile::OpenFlags::WriteOnly);
+        if (!result) {
+            throw std::runtime_error(result.error().message());
+        }
+
+        for (auto &it : output) {
+            std::string line = katla::format("{}\n", it);
+
+            gsl::span <std::byte> s(reinterpret_cast<std::byte *>(line.data()), line.size());
+            auto writeResult = file.write(s);
+            if (!writeResult) {
+                katla::print(stderr, "Failed writing to file: {}\n", filePath);
+            }
+        }
+
+        auto closeResult = file.close();
+        if (!closeResult) {
+            katla::print(stderr, "Failed closing file: {}\n", filePath);
+        }
+    }
+
 } // namespace backer
